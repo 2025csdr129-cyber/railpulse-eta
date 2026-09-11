@@ -1,0 +1,26 @@
+[
+  {
+    "segment_id": "SEG_01",
+    "from_station": "NDLS",
+    "to_station": "GZB",
+    "distance_km": 25.0,
+    "max_speed_kmph": 110,
+    "nominal_time_min": 18
+  },
+  {
+    "segment_id": "SEG_02",
+    "from_station": "GZB",
+    "to_station": "ALJN",
+    "distance_km": 105.0,
+    "max_speed_kmph": 130,
+    "nominal_time_min": 55
+  },
+  {
+    "segment_id": "SEG_03",
+    "from_station": "ALJN",
+    "to_station": "CNB",
+    "distance_km": 305.0,
+    "max_speed_kmph": 130,
+    "nominal_time_min": 160
+  }
+]
