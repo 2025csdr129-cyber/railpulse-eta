@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RailPulse - Passenger Live Corridor</title>
+  <title>RailPulse - Live Full Rake Corridor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -19,7 +18,6 @@
       justify-content: center;
     }
 
-    /* Outer Phone Chassis */
     .phone-container {
       position: relative;
       width: 380px;
@@ -34,7 +32,6 @@
       flex-direction: column;
     }
 
-    /* Inner Screen */
     .screen {
       position: relative;
       width: 100%;
@@ -44,7 +41,6 @@
       overflow: hidden;
     }
 
-    /* Dynamic Island / Notch */
     .notch {
       position: absolute;
       top: 10px;
@@ -72,7 +68,6 @@
       z-index: 1;
     }
 
-    /* Top Bar */
     .top-bar {
       position: absolute;
       top: 42px;
@@ -106,11 +101,10 @@
       box-shadow: 0 0 8px #10b981;
       animation: pulse 2s infinite;
     }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     .pill-title { font-size: 11.5px; font-weight: 700; color: #fff; }
     .pill-sub { font-size: 9.5px; color: #94a3b8; }
 
-    /* Compact Telemetry Tab Button */
     .telemetry-tab-btn {
       background: rgba(2, 132, 199, 0.9);
       border: 1px solid rgba(56, 189, 248, 0.6);
@@ -127,12 +121,8 @@
       pointer-events: auto;
       transition: all 0.2s ease;
     }
-    .telemetry-tab-btn:hover {
-      background: #0284c7;
-      transform: scale(1.04);
-    }
+    .telemetry-tab-btn:hover { background: #0284c7; transform: scale(1.04); }
 
-    /* Passenger Coach Formation Bar (Directly useful for commuters) */
     .coach-bar {
       position: absolute;
       top: 86px;
@@ -149,7 +139,7 @@
       backdrop-filter: blur(12px);
     }
     .coach-title { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-    .coach-list { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+    .coach-list { display: flex; gap: 4px; }
     .coach-badge {
       font-size: 8.5px;
       font-weight: 700;
@@ -162,7 +152,6 @@
     .coach-badge.loco { background: #0284c7; color: #fff; border-color: #38bdf8; }
     .coach-badge.my-seat { background: #10b981; color: #fff; border-color: #34d399; }
 
-    /* Passenger Station & Dwell Banner */
     .station-banner {
       position: absolute;
       top: 122px;
@@ -181,10 +170,9 @@
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
     .station-banner-txt { font-size: 10px; font-weight: 700; color: #f8fafc; display: flex; flex-direction: column; gap: 2px; }
-    .station-banner-sub { font-size: 8.5px; font-weight: 500; color: #38bdf8; }
+    .station-banner-sub { font-size: 8.5px; color: #38bdf8; }
     .station-dwell-chip { font-family: "Courier New", monospace; font-size: 13px; font-weight: 700; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 3px 7px; border-radius: 5px; }
 
-    /* Slide-out Telemetry Drawer */
     .telemetry-drawer {
       position: absolute;
       top: 0;
@@ -201,9 +189,7 @@
       box-shadow: -15px 0 35px rgba(0,0,0,0.85);
       transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .telemetry-drawer.open {
-      right: 0;
-    }
+    .telemetry-drawer.open { right: 0; }
 
     .drawer-header {
       display: flex;
@@ -213,7 +199,7 @@
       padding-bottom: 10px;
       margin-bottom: 12px;
     }
-    .drawer-title { font-size: 13px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.8px; }
+    .drawer-title { font-size: 13px; font-weight: 700; color: #38bdf8; text-transform: uppercase; }
     .close-btn {
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -222,60 +208,20 @@
       height: 28px;
       border-radius: 50%;
       cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
-    .drawer-content {
-      overflow-y: auto;
-      flex: 1;
-      padding-right: 4px;
-      scrollbar-width: thin;
-      scrollbar-color: #334155 transparent;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-    .metric-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      padding: 5px 0;
-      border-bottom: 1px dashed rgba(255,255,255,0.06);
-    }
-    .metric-key { color: #94a3b8; font-size: 10.5px; }
-    .metric-val { font-weight: 600; color: #f8fafc; font-family: "Courier New", monospace; text-align: right; }
+    .drawer-content { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .metric-row { display: flex; justify-content: space-between; font-size: 11px; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); }
+    .metric-key { color: #94a3b8; }
+    .metric-val { font-weight: 600; color: #f8fafc; font-family: "Courier New", monospace; }
     .metric-val.good { color: #10b981; }
     .metric-val.warn { color: #f59e0b; }
     .metric-val.alert { color: #ef4444; }
 
-    .sim-controls {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .btn {
-      background: #1e293b;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      color: #e2e8f0;
-      padding: 7px 10px;
-      border-radius: 8px;
-      font-size: 10.5px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .btn.active { background: #0284c7; border-color: #38bdf8; color: #ffffff; }
+    .sim-controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 6px; }
+    .btn { background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.18); color: #e2e8f0; padding: 7px 10px; border-radius: 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; }
+    .btn.active { background: #0284c7; border-color: #38bdf8; }
 
-    /* Bottom HUD Bar */
     .hud-bar {
       position: absolute;
       bottom: 14px;
@@ -283,18 +229,15 @@
       right: 14px;
       background: rgba(11, 15, 25, 0.94);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(16px);
       border-radius: 12px;
       padding: 7px 12px;
       display: flex;
-      align-items: center;
       justify-content: space-around;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.85);
       z-index: 100;
     }
     .hud-col { display: flex; flex-direction: column; align-items: center; }
-    .hud-lbl { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; font-weight: 700; }
-    .hud-val { font-family: "Courier New", monospace; font-size: 16px; font-weight: 700; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+    .hud-lbl { font-size: 8px; color: #64748b; font-weight: 700; }
+    .hud-val { font-family: "Courier New", monospace; font-size: 16px; font-weight: 700; color: #38bdf8; }
     .hud-sep { width: 1px; height: 22px; background: rgba(255,255,255,0.12); }
   </style>
 </head>
@@ -304,16 +247,14 @@
     <div class="notch"><div class="camera-lens"></div></div>
 
     <div class="screen">
-      <!-- 3D Canvas -->
       <div id="webgl-canvas"></div>
 
-      <!-- Top Bar -->
       <div class="top-bar">
         <div class="top-pill">
           <div class="status-dot" id="pill-status-dot"></div>
           <div>
-            <div class="pill-title" id="pill-train-title">RailPulse #12424 Rajdhani</div>
-            <div class="pill-sub" id="pill-train-sub">ISRO RTIS Live Uplink</div>
+            <div class="pill-title">RailPulse #12424 Rajdhani</div>
+            <div class="pill-sub" id="pill-train-sub">FastAPI WebSocket Uplink</div>
           </div>
         </div>
 
@@ -322,11 +263,10 @@
         </button>
       </div>
 
-      <!-- Passenger Coach Formation Bar -->
       <div class="coach-bar">
         <span class="coach-title">Rake Formation</span>
         <div class="coach-list">
-          <span class="coach-badge loco">LOCO</span>
+          <span class="coach-badge loco">WAP-7</span>
           <span class="coach-badge">H1</span>
           <span class="coach-badge my-seat">A1 (You)</span>
           <span class="coach-badge">B1</span>
@@ -336,16 +276,14 @@
         </div>
       </div>
 
-      <!-- Live Station Halt & Dwell Banner -->
       <div class="station-banner" id="stationBanner">
         <div class="station-banner-txt">
-          <span id="bannerTxt">🚉 ARRIVING GHAZIABAD (PF #2)</span>
-          <span class="station-banner-sub" id="bannerSub">Platform side: RIGHT • Halt 2 min</span>
+          <span>🚉 ARRIVING GHAZIABAD (PF #2)</span>
+          <span class="station-banner-sub">Platform side: RIGHT • Boarding in progress</span>
         </div>
         <div class="station-dwell-chip" id="dwellChip">00:30</div>
       </div>
 
-      <!-- Slide-Out Drawer -->
       <div class="telemetry-drawer" id="telemetryDrawer">
         <div class="drawer-header">
           <span class="drawer-title">Operational Telemetry</span>
@@ -353,89 +291,33 @@
         </div>
 
         <div class="drawer-content">
-          <div class="metric-row">
-            <span class="metric-key">🚦 Signal Aspect</span>
-            <span class="metric-val good" id="ui-signal">GREEN (ABS Clear)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">⚡ Current Speed</span>
-            <span class="metric-val" id="ui-speed">124 km/h</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">⚠️ Current Delay</span>
-            <span class="metric-val good" id="ui-delay">+0 min (On Time)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">📏 Next Station</span>
-            <span class="metric-val" id="ui-distance">16.2 km (to GZB)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">📡 GPS Position (RTIS)</span>
-            <span class="metric-val" id="ui-gps">28.6189°N, 77.2185°E</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">🚉 Platform Status</span>
-            <span class="metric-val good" id="ui-platform">PF #2 Available (Right)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">⏳ Loading / Dwell Time</span>
-            <span class="metric-val" id="ui-dwell">Scheduled 30s Stop</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">🕒 Timetable</span>
-            <span class="metric-val" id="ui-schedule">16:55 → 22:50</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">🌦️ Route Weather</span>
-            <span class="metric-val good" id="ui-weather">Clear (>4000m)</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-key">🚂 Preceding Headway</span>
-            <span class="metric-val good" id="ui-headway">12.5 km (Clear Gap)</span>
-          </div>
+          <div class="metric-row"><span class="metric-key">🚦 Signal Aspect</span><span class="metric-val good" id="ui-signal">GREEN</span></div>
+          <div class="metric-row"><span class="metric-key">⚡ Current Speed</span><span class="metric-val" id="ui-speed">124.0 km/h</span></div>
+          <div class="metric-row"><span class="metric-key">⚠️ Current Delay</span><span class="metric-val good" id="ui-delay">+0 min</span></div>
+          <div class="metric-row"><span class="metric-key">📏 Next Station</span><span class="metric-val" id="ui-distance">16.2 km (to GZB)</span></div>
+          <div class="metric-row"><span class="metric-key">📡 GPS Position (RTIS)</span><span class="metric-val" id="ui-gps">28.6189°N, 77.2185°E</span></div>
+          <div class="metric-row"><span class="metric-key">🚉 Platform Status</span><span class="metric-val good" id="ui-platform">PF #2 Available (Right)</span></div>
+          <div class="metric-row"><span class="metric-key">⏳ Loading / Dwell Time</span><span class="metric-val" id="ui-dwell">Scheduled Stop</span></div>
+          <div class="metric-row"><span class="metric-key">🕒 Timetable</span><span class="metric-val">16:55 → 22:50</span></div>
+          <div class="metric-row"><span class="metric-key">🌦️ Route Weather</span><span class="metric-val good" id="ui-weather">Clear</span></div>
+          <div class="metric-row"><span class="metric-key">🚂 Preceding Headway</span><span class="metric-val good" id="ui-headway">Clear Gap</span></div>
 
           <div class="sim-controls">
-            <div style="font-size: 9.5px; color: #94a3b8; font-weight:700; margin-bottom: 2px;">INTERACTIVE CONTROLS:</div>
-            <button class="btn" id="btn-freight">
-              <span>Lagging Freight Ahead</span>
-              <span id="txt-freight" style="color:#ef4444;">NONE</span>
-            </button>
-            <button class="btn" id="btn-overtake" style="display:none; border-color:#f59e0b;">
-              <span>🔀 Divert Freight to Loop Line</span>
-              <span id="txt-overtake" style="color:#f59e0b;">READY</span>
-            </button>
-            <button class="btn" id="btn-station-dwell">
-              <span>Station Dwell Mode</span>
-              <span id="txt-dwell-mode" style="color:#10b981;">AUTO</span>
-            </button>
-            <button class="btn" id="btn-signal">
-              <span>Outer Signal Stop</span>
-              <span id="txt-signal" style="color:#10b981;">OFF</span>
-            </button>
-            <button class="btn" id="btn-fog">
-              <span>Route Fog Restriction</span>
-              <span id="txt-fog" style="color:#10b981;">OFF</span>
-            </button>
+            <button class="btn" id="btn-freight"><span>Lagging Freight Ahead</span><span id="txt-freight" style="color:#ef4444;">NONE</span></button>
+            <button class="btn" id="btn-overtake" style="display:none; border-color:#f59e0b;"><span>🔀 Divert Freight to Loop</span><span id="txt-overtake" style="color:#f59e0b;">READY</span></button>
+            <button class="btn" id="btn-station-dwell"><span>Station Dwell Mode</span><span id="txt-dwell-mode" style="color:#10b981;">AUTO</span></button>
+            <button class="btn" id="btn-signal"><span>Outer Signal Stop</span><span id="txt-signal" style="color:#10b981;">OFF</span></button>
+            <button class="btn" id="btn-fog"><span>Route Fog Restriction</span><span id="txt-fog" style="color:#10b981;">OFF</span></button>
           </div>
         </div>
       </div>
 
-      <!-- Bottom HUD -->
       <div class="hud-bar">
-        <div class="hud-col">
-          <span class="hud-lbl">ETA</span>
-          <span class="hud-val" id="hud-eta">00:25:73</span>
-        </div>
+        <div class="hud-col"><span class="hud-lbl">ETA</span><span class="hud-val" id="hud-eta">00:25:73</span></div>
         <div class="hud-sep"></div>
-        <div class="hud-col">
-          <span class="hud-lbl">ETA</span>
-          <span class="hud-val" style="color:#22c55e;" id="hud-subeta">01:10:08</span>
-        </div>
+        <div class="hud-col"><span class="hud-lbl">ETA</span><span class="hud-val" style="color:#22c55e;" id="hud-subeta">01:10:08</span></div>
         <div class="hud-sep"></div>
-        <div class="hud-col">
-          <span class="hud-lbl">CLOCK</span>
-          <span class="hud-val" id="hud-clock">10:03:88</span>
-        </div>
+        <div class="hud-col"><span class="hud-lbl">CLOCK</span><span class="hud-val" id="hud-clock">10:03:88</span></div>
       </div>
     </div>
   </div>
@@ -444,98 +326,61 @@
     function openDrawer() { document.getElementById('telemetryDrawer').classList.add('open'); }
     function closeDrawer() { document.getElementById('telemetryDrawer').classList.remove('open'); }
 
+    // Three.js Scene Setup
     const container = document.getElementById('webgl-canvas');
     const screenEl = document.querySelector('.screen');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x060911);
-    scene.fog = new THREE.FogExp2(0x060911, 0.0020);
+    scene.fog = new THREE.FogExp2(0x060911, 0.0018);
 
-    let w = screenEl.clientWidth;
-    let h = screenEl.clientHeight;
-    let aspect = w / h;
-    let d = 165;
-
+    let w = screenEl.clientWidth, h = screenEl.clientHeight;
+    let aspect = w / h, d = 165;
     const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1400);
     camera.position.set(45, 175, 125);
-    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
-    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0x1e293b, 1.9);
-    scene.add(ambientLight);
+    scene.add(new THREE.AmbientLight(0x1e293b, 1.9));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
     dirLight.position.set(60, 200, 60);
     scene.add(dirLight);
-    const cyanGlowLight = new THREE.DirectionalLight(0x00f0ff, 0.9);
+
+    const cyanGlowLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
     cyanGlowLight.position.set(-60, 80, -60);
     scene.add(cyanGlowLight);
 
-    // Ground Plane
+    // Ground & Ballast
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1200, 2400), new THREE.MeshLambertMaterial({ color: 0x080d1a }));
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // Mainline Ballast
-    const ballastGeo = new THREE.BoxGeometry(16, 0.7, 1400);
-    const ballastMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
-    const ballastMesh = new THREE.Mesh(ballastGeo, ballastMat);
+    const ballastMesh = new THREE.Mesh(new THREE.BoxGeometry(16, 0.7, 1400), new THREE.MeshLambertMaterial({ color: 0x111827 }));
     ballastMesh.position.set(0, 0.35, 0);
     scene.add(ballastMesh);
 
-    const sleeperGeo = new THREE.BoxGeometry(11, 0.35, 1.6);
+    // Sleepers
     const sleeperMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
     for (let z = -680; z <= 680; z += 4.5) {
-      const sleeper = new THREE.Mesh(sleeperGeo, sleeperMat);
+      const sleeper = new THREE.Mesh(new THREE.BoxGeometry(11, 0.35, 1.6), sleeperMat);
       sleeper.position.set(0, 0.45, z);
       scene.add(sleeper);
     }
 
-    [-3.2, 3.2].forEach(xOffset => {
-      const glowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 1400), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
-      glowMesh.position.set(xOffset, 0.75, 0);
-      scene.add(glowMesh);
+    // Twin Rails
+    [-3.2, 3.2].forEach(x => {
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 1400), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
+      glow.position.set(x, 0.75, 0);
+      scene.add(glow);
 
-      const steelMesh = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.3, 1400), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      steelMesh.position.set(xOffset, 0.95, 0);
-      scene.add(steelMesh);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.3, 1400), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rail.position.set(x, 0.95, 0);
+      scene.add(rail);
     });
 
-    // Loop Line (Siding for Overtake)
-    const loopBallast = new THREE.Mesh(new THREE.BoxGeometry(14, 0.6, 280), ballastMat);
-    loopBallast.position.set(-18, 0.3, 20);
-    scene.add(loopBallast);
-
-    for (let z = -110; z <= 150; z += 4.5) {
-      const sleeper = new THREE.Mesh(new THREE.BoxGeometry(10, 0.35, 1.6), sleeperMat);
-      sleeper.position.set(-18, 0.45, z);
-      scene.add(sleeper);
-    }
-
-    [-3.0, 3.0].forEach(xOff => {
-      const loopGlow = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 280), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-      loopGlow.position.set(-18 + xOff, 0.7, 20);
-      scene.add(loopGlow);
-
-      const loopSteel = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.25, 280), new THREE.MeshBasicMaterial({ color: 0x94a3b8 }));
-      loopSteel.position.set(-18 + xOff, 0.85, 20);
-      scene.add(loopSteel);
-    });
-
-    function createTurnout(zStart, zEnd, xStart, xEnd) {
-      const pts = [new THREE.Vector3(xStart, 0.8, zStart), new THREE.Vector3(xEnd, 0.8, zEnd)];
-      const curve = new THREE.CatmullRomCurve3(pts);
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.4, 6, false), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-      scene.add(tube);
-    }
-    createTurnout(-150, -110, 0, -18);
-    createTurnout(150, 190, -18, 0);
-
-    // OHE Masts
+    // OHE Catenary Masts
     const mastMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
     for (let z = -650; z <= 650; z += 45) {
       const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 20), mastMat);
@@ -551,48 +396,26 @@
       scene.add(arm);
     }
 
-    // Stations
+    // Loop Siding
+    const loopMesh = new THREE.Mesh(new THREE.BoxGeometry(14, 0.6, 280), new THREE.MeshLambertMaterial({ color: 0x111827 }));
+    loopMesh.position.set(-18, 0.3, 20);
+    scene.add(loopMesh);
+
+    [-3.0, 3.0].forEach(x => {
+      const lr = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 280), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      lr.position.set(-18 + x, 0.7, 20);
+      scene.add(lr);
+    });
+
+    // Platforms
     const stations = [
-      { name: "NDLS - New Delhi", sub: "ORIGIN STATION (PF #16)", z: -320 },
-      { name: "Ghaziabad Jn (GZB)", sub: "PLATFORM #2 • SCHEDULED STOP", z: 0 },
+      { name: "NDLS - New Delhi", sub: "ORIGIN (PF #16)", z: -320 },
+      { name: "Ghaziabad Jn (GZB)", sub: "PLATFORM #2 • STOP", z: 0 },
       { name: "Kanpur Central (CNB)", sub: "TERMINAL PLATFORM", z: 340 }
     ];
 
-    const signalGantries = [];
-
-    function createStationSprite(name, sub) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 360;
-      canvas.height = 95;
-      const ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(10, 10, 340, 75, 14);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 24px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(name, 180, 46);
-
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 14px monospace";
-      ctx.fillText(sub, 180, 70);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-      sprite.scale.set(42, 11, 1);
-      return sprite;
-    }
-
     stations.forEach(st => {
-      const platGeo = new THREE.BoxGeometry(13, 2.0, 90);
-      const platMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
-      const plat = new THREE.Mesh(platGeo, platMat);
+      const plat = new THREE.Mesh(new THREE.BoxGeometry(13, 2.0, 90), new THREE.MeshLambertMaterial({ color: 0x1e293b }));
       plat.position.set(15, 1.0, st.z);
       scene.add(plat);
 
@@ -609,52 +432,19 @@
       const edge = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 90), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
       edge.position.set(-6.3, 1.05, 0);
       plat.add(edge);
-
-      const sign = createStationSprite(st.name, st.sub);
-      sign.position.set(15, 22, st.z);
-      scene.add(sign);
-
-      const gantryZ = st.z - 55;
-      const colL = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 22), new THREE.MeshLambertMaterial({ color: 0x475569 }));
-      colL.position.set(-11, 11, gantryZ);
-      scene.add(colL);
-
-      const colR = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 22), new THREE.MeshLambertMaterial({ color: 0x475569 }));
-      colR.position.set(11, 11, gantryZ);
-      scene.add(colR);
-
-      const crossbar = new THREE.Mesh(new THREE.BoxGeometry(22.5, 1.2, 1.6), new THREE.MeshLambertMaterial({ color: 0x334155 }));
-      crossbar.position.set(0, 19, gantryZ);
-      scene.add(crossbar);
-
-      const sigBox = new THREE.Mesh(new THREE.BoxGeometry(2.4, 6.5, 1.4), new THREE.MeshLambertMaterial({ color: 0x0f172a }));
-      sigBox.position.set(-4, 15.5, gantryZ);
-      scene.add(sigBox);
-
-      const redLamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 14), new THREE.MeshBasicMaterial({ color: 0x330000 }));
-      redLamp.position.set(0, 2.0, -0.7);
-      sigBox.add(redLamp);
-
-      const yellowLamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 14), new THREE.MeshBasicMaterial({ color: 0x332200 }));
-      yellowLamp.position.set(0, 0, -0.7);
-      sigBox.add(yellowLamp);
-
-      const greenLamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 14), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
-      greenLamp.position.set(0, -2.0, -0.7);
-      sigBox.add(greenLamp);
-
-      signalGantries.push({ red: redLamp, yellow: yellowLamp, green: greenLamp });
     });
 
-    // Aerodynamic Train
+    // Full Multi-Coach Rajdhani Train
     const trainGroup = new THREE.Group();
-    const trainMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const trainMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+    const windowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const couplerMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
 
-    const engine = new THREE.Mesh(new THREE.BoxGeometry(6, 4.8, 20), trainMat);
-    engine.position.set(0, 2.9, 10);
-    trainGroup.add(engine);
+    const loco = new THREE.Mesh(new THREE.BoxGeometry(6, 4.8, 20), new THREE.MeshLambertMaterial({ color: 0xd97706 }));
+    loco.position.set(0, 2.9, 10);
+    trainGroup.add(loco);
 
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(3.1, 7, 4), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(3.1, 7, 4), new THREE.MeshLambertMaterial({ color: 0xb45309 }));
     nose.rotation.x = Math.PI / 2;
     nose.position.set(0, 2.9, 21.5);
     trainGroup.add(nose);
@@ -663,280 +453,162 @@
     lightSpot.position.set(0, 2.9, 24);
     trainGroup.add(lightSpot);
 
-    for (let c = 0; c < 2; c++) {
-      const zPos = -10 - c * 21;
-      const coach = new THREE.Mesh(new THREE.BoxGeometry(5.8, 4.8, 17), trainMat);
-      coach.position.set(0, 2.9, zPos);
+    const panto = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 3.2), new THREE.MeshLambertMaterial({ color: 0xef4444 }));
+    panto.position.set(0, 5.5, 10);
+    trainGroup.add(panto);
 
-      const winL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.3, 14), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-      winL.position.set(-2.95, 3.4, zPos);
+    const coachConfigs = [
+      { z: -12 },
+      { z: -33 },
+      { z: -54 },
+      { z: -75 }
+    ];
 
-      const winR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.3, 14), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-      winR.position.set(2.95, 3.4, zPos);
-
+    coachConfigs.forEach(cfg => {
+      const coach = new THREE.Mesh(new THREE.BoxGeometry(5.8, 4.8, 18), trainMat);
+      coach.position.set(0, 2.9, cfg.z);
       trainGroup.add(coach);
+
+      const stripeL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 18), new THREE.MeshBasicMaterial({ color: 0xd97706 }));
+      stripeL.position.set(-2.95, 2.7, cfg.z);
+      trainGroup.add(stripeL);
+
+      const stripeR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 18), new THREE.MeshBasicMaterial({ color: 0xd97706 }));
+      stripeR.position.set(2.95, 2.7, cfg.z);
+      trainGroup.add(stripeR);
+
+      const winL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.3, 14), windowMat);
+      winL.position.set(-2.95, 3.5, cfg.z);
       trainGroup.add(winL);
+
+      const winR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.3, 14), windowMat);
+      winR.position.set(2.95, 3.5, cfg.z);
       trainGroup.add(winR);
-    }
+
+      const coupler = new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.8, 3.0), couplerMat);
+      coupler.position.set(0, 2.6, cfg.z + 10.5);
+      trainGroup.add(coupler);
+    });
+
     scene.add(trainGroup);
 
-    // Freight Group
+    // Freight Train Rake
     const freightGroup = new THREE.Group();
-    const fMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
-    for (let f = 0; f < 3; f++) {
-      const fBox = new THREE.Mesh(new THREE.BoxGeometry(5.8, 5.2, 16), fMat);
-      fBox.position.set(0, 2.9, -f * 18);
-      freightGroup.add(fBox);
+    const fMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+    for (let f = 0; f < 4; f++) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(5.8, 5.2, 17), fMat);
+      box.position.set(0, 2.9, -f * 19);
+      freightGroup.add(box);
     }
     scene.add(freightGroup);
     freightGroup.visible = false;
 
-    // Simulation State
-    let progress = 0.05;
-    let currentSpeedKmh = 124;
-    let targetSpeedKmh = 124;
+    // WebSocket Telemetry Connection
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${wsProto}//${window.location.host}/ws/telemetry`);
 
-    let hasFreight = false;
-    let isFreightDiverted = false;
+    let latestTelemetry = null;
     let freightX = 0;
-    let hasSignal = false;
-    let hasFog = false;
 
-    let autoStationDwell = true;
-    let isStationHalted = false;
-    let hasDepartedStation = false;
-    let dwellRemainingSec = 30;
-    let dwellTimerInterval = null;
+    socket.onmessage = function(event) {
+      latestTelemetry = JSON.parse(event.data);
+      renderTelemetryHUD(latestTelemetry);
+    };
 
-    function startStationDwell() {
-      if (hasDepartedStation) return;
-      isStationHalted = true;
-      targetSpeedKmh = 0;
-      dwellRemainingSec = 30;
-      document.getElementById('stationBanner').style.display = 'flex';
-      document.getElementById('pill-train-sub').innerText = "Halted at GZB (PF #2) • Boarding";
-      document.getElementById('dwellChip').innerText = "00:30";
-      document.getElementById('ui-dwell').innerText = "Dwell Active: 00:30";
-
-      if (dwellTimerInterval) clearInterval(dwellTimerInterval);
-      dwellTimerInterval = setInterval(() => {
-        dwellRemainingSec--;
-        if (dwellRemainingSec <= 0) {
-          endStationDwell();
-        } else {
-          const m = Math.floor(dwellRemainingSec / 60);
-          const s = dwellRemainingSec % 60;
-          const fmt = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-          document.getElementById('dwellChip').innerText = fmt;
-          document.getElementById('ui-dwell').innerText = `Dwell Active: ${fmt}`;
-        }
-      }, 1000);
-      updateTelemetry();
+    function sendAction(actionName) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: actionName }));
+      }
     }
 
-    function endStationDwell() {
-      if (dwellTimerInterval) clearInterval(dwellTimerInterval);
-      dwellTimerInterval = null;
-      isStationHalted = false;
-      hasDepartedStation = true;
-      progress = 0.51;
+    function renderTelemetryHUD(data) {
+      document.getElementById('ui-speed').innerText = `${data.speed_kmh} km/h`;
+      document.getElementById('ui-delay').innerText = `+${data.delay_min} min`;
+      document.getElementById('ui-signal').innerText = data.signal_aspect;
+      document.getElementById('ui-signal').className = 'metric-val ' + (data.signal_aspect === 'GREEN' ? 'good' : (data.signal_aspect === 'RED' ? 'alert' : 'warn'));
+      document.getElementById('ui-gps').innerText = `${data.gps_lat}°N, ${data.gps_lng}°E`;
+      document.getElementById('ui-distance').innerText = `${data.dist_to_gzb} km (to GZB)`;
 
-      document.getElementById('stationBanner').style.display = 'none';
-      document.getElementById('ui-dwell').innerText = "Departure Cleared";
-      document.getElementById('pill-train-sub').innerText = "Departing GZB • Accelerating";
-      
-      targetSpeedKmh = (hasFreight && !isFreightDiverted) ? 42 : (hasFog ? 60 : 124);
-      currentSpeedKmh = 18;
-      updateTelemetry();
+      const banner = document.getElementById('stationBanner');
+      if (data.is_station_halted) {
+        banner.style.display = 'flex';
+        const s = data.dwell_sec % 60;
+        document.getElementById('dwellChip').innerText = `00:${String(s).padStart(2, '0')}`;
+        document.getElementById('ui-dwell').innerText = `Dwell: 00:${String(s).padStart(2, '0')}`;
+      } else {
+        banner.style.display = 'none';
+        document.getElementById('ui-dwell').innerText = "Clear";
+      }
+
+      document.getElementById('hud-eta').innerText = `00:${String(25 + data.delay_min).padStart(2, '0')}:73`;
+
+      // 1. Freight button state
+      const fBtn = document.getElementById('btn-freight');
+      fBtn.classList.toggle('active', data.has_freight);
+      document.getElementById('txt-freight').innerText = data.has_freight ? "ACTIVE" : "NONE";
+      document.getElementById('txt-freight').style.color = data.has_freight ? "#ef4444" : "#10b981";
+
+      // 2. Loop Overtake button state
+      const overtBtn = document.getElementById('btn-overtake');
+      overtBtn.style.display = data.has_freight ? 'flex' : 'none';
+      overtBtn.classList.toggle('active', data.is_freight_diverted);
+      document.getElementById('txt-overtake').innerText = data.is_freight_diverted ? "DIVERTED" : "READY";
+      document.getElementById('txt-overtake').style.color = data.is_freight_diverted ? "#10b981" : "#f59e0b";
+
+      // 3. Station Dwell button state
+      const dwellBtn = document.getElementById('btn-station-dwell');
+      dwellBtn.classList.toggle('active', data.is_station_halted);
+      document.getElementById('txt-dwell-mode').innerText = data.is_station_halted ? "HALTED" : "AUTO";
+      document.getElementById('txt-dwell-mode').style.color = data.is_station_halted ? "#f59e0b" : "#10b981";
+
+      // 4. Outer Signal Stop button state
+      const sigBtn = document.getElementById('btn-signal');
+      sigBtn.classList.toggle('active', data.has_signal_halt);
+      document.getElementById('txt-signal').innerText = data.has_signal_halt ? "HALTED" : "OFF";
+      document.getElementById('txt-signal').style.color = data.has_signal_halt ? "#ef4444" : "#10b981";
+
+      // 5. Route Fog Restriction button state
+      const fogBtn = document.getElementById('btn-fog');
+      fogBtn.classList.toggle('active', data.has_fog);
+      document.getElementById('txt-fog').innerText = data.has_fog ? "ACTIVE" : "OFF";
+      document.getElementById('txt-fog').style.color = data.has_fog ? "#ef4444" : "#10b981";
     }
 
     function animate() {
       requestAnimationFrame(animate);
+      if (latestTelemetry) {
+        const trainZ = -540 + latestTelemetry.progress * 1080;
+        trainGroup.position.set(0, 0, trainZ);
 
-      if (currentSpeedKmh < targetSpeedKmh) {
-        currentSpeedKmh = Math.min(currentSpeedKmh + 0.9, targetSpeedKmh);
-      } else if (currentSpeedKmh > targetSpeedKmh) {
-        currentSpeedKmh = Math.max(currentSpeedKmh - 1.4, targetSpeedKmh);
-      }
+        camera.position.z = trainZ + 125;
+        camera.lookAt(0, 0, trainZ);
 
-      const step = (currentSpeedKmh / 124) * 0.0012;
-      if (!isStationHalted && !hasSignal) {
-        progress += step;
-        if (progress >= 1.0) {
-          progress = 0.0;
-          hasDepartedStation = false;
+        if (latestTelemetry.has_freight) {
+          freightGroup.visible = true;
+          let targetX = latestTelemetry.is_freight_diverted ? -18 : 0;
+          freightX += (targetX - freightX) * 0.08;
+          const fZ = latestTelemetry.is_freight_diverted ? 20 : (-540 + ((latestTelemetry.progress + 0.14) % 1.0) * 1080);
+          freightGroup.position.set(freightX, 0, fZ);
+        } else {
+          freightGroup.visible = false;
         }
       }
-
-      if (autoStationDwell && !isStationHalted && !hasDepartedStation && progress >= 0.485 && progress <= 0.50) {
-        startStationDwell();
-      }
-
-      const trainZ = -540 + progress * 1080;
-      trainGroup.position.set(0, 0, trainZ);
-
-      // Steady Corridor Follow Camera (Best Passenger Angle)
-      camera.position.set(45, 175, trainZ + 125);
-      camera.lookAt(0, 0, trainZ);
-
-      if (isStationHalted) {
-        document.getElementById('ui-distance').innerText = "0.0 km (At Platform)";
-      } else if (!hasDepartedStation && progress < 0.49) {
-        const dist = ((0.49 - progress) * 35).toFixed(1);
-        document.getElementById('ui-distance').innerText = `${dist} km (to GZB)`;
-      } else {
-        const distToCnb = Math.max(0, ((0.85 - progress) * 35)).toFixed(1);
-        document.getElementById('ui-distance').innerText = `${distToCnb} km (to CNB)`;
-      }
-
-      const lat = 28.6189 + progress * 0.04;
-      const lng = 77.2185 + progress * 0.04;
-      document.getElementById('ui-gps').innerText = `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
-      document.getElementById('ui-speed').innerText = `${Math.round(currentSpeedKmh)} km/h`;
-
-      if (hasFreight) {
-        freightGroup.visible = true;
-        let targetX = isFreightDiverted ? -18 : 0;
-        freightX += (targetX - freightX) * 0.05;
-
-        const fZ = isFreightDiverted ? 20 : (-540 + ((progress + 0.14) % 1.0) * 1080);
-        freightGroup.position.set(freightX, 0, fZ);
-      } else {
-        freightGroup.visible = false;
-      }
-
       renderer.render(scene, camera);
     }
     animate();
 
-    function updateTelemetry() {
-      let delay = 0;
-      let sigText = "GREEN (ABS Clear)";
-      let sigClass = "good";
-      let pfText = "PF #2 Available (Right)";
-      let gapText = "12.5 km (Clear Gap)";
-      let wText = "Clear (>4000m)";
-
-      let rColor = 0x330000;
-      let yColor = 0x332200;
-      let gColor = 0x10b981;
-
-      if (isStationHalted) {
-        targetSpeedKmh = 0;
-        sigText = "RED (Station Starter Aspect)";
-        sigClass = "warn";
-        pfText = "PF #2 Berthing • Boarding Active";
-        gColor = 0x003311;
-        rColor = 0xef4444;
-      } else if (hasFreight && !isFreightDiverted) {
-        delay += 18;
-        targetSpeedKmh = 42;
-        sigText = "DOUBLE YELLOW";
-        sigClass = "warn";
-        gapText = "1.8 km (Slow Freight Lagging)";
-        gColor = 0x003311;
-        yColor = 0xf59e0b;
-      } else if (hasFreight && isFreightDiverted) {
-        delay = 2;
-        targetSpeedKmh = 124;
-        sigText = "GREEN (Loop Overtake Cleared)";
-        sigClass = "good";
-        gapText = "Freight Siding Cleared (Loop #1)";
-        gColor = 0x10b981;
-      } else if (hasSignal) {
-        delay += 26;
-        targetSpeedKmh = 0;
-        sigText = "RED (Outer Signal Halt)";
-        sigClass = "alert";
-        pfText = "PF #2 Occupied - Standby Outside";
-        gColor = 0x003311;
-        yColor = 0x332200;
-        rColor = 0xef4444;
-      } else if (hasFog) {
-        delay += 14;
-        targetSpeedKmh = 60;
-        wText = "Dense Fog (TSR 60 km/h Active)";
+    // Controls
+    document.getElementById('btn-freight').onclick = () => sendAction('TOGGLE_FREIGHT');
+    document.getElementById('btn-overtake').onclick = () => sendAction('DIVERT_FREIGHT');
+    document.getElementById('btn-signal').onclick = () => sendAction('TOGGLE_SIGNAL');
+    document.getElementById('btn-fog').onclick = () => sendAction('TOGGLE_FOG');
+    document.getElementById('btn-station-dwell').onclick = () => {
+      if (latestTelemetry && latestTelemetry.is_station_halted) {
+        sendAction('FORCE_DEPARTURE');
       } else {
-        targetSpeedKmh = 124;
+        sendAction('FORCE_HALT');
       }
-
-      signalGantries.forEach(sg => {
-        sg.red.material.color.setHex(rColor);
-        sg.yellow.material.color.setHex(yColor);
-        sg.green.material.color.setHex(gColor);
-      });
-
-      const sigEl = document.getElementById('ui-signal');
-      sigEl.innerText = sigText;
-      sigEl.className = 'metric-val ' + sigClass;
-      const delEl = document.getElementById('ui-delay');
-      delEl.innerText = `+${delay} min`;
-      delEl.className = 'metric-val ' + (delay > 0 ? (delay > 20 ? 'alert' : 'warn') : 'good');
-      document.getElementById('ui-platform').innerText = pfText;
-      document.getElementById('ui-headway').innerText = gapText;
-      document.getElementById('ui-weather').innerText = wText;
-
-      const pad = n => String(n).padStart(2, '0');
-      const etaM = 25 + delay;
-      document.getElementById('hud-eta').innerText = `00:${pad(etaM % 60)}:73`;
-      document.getElementById('hud-subeta').innerText = `01:${pad((10 + delay) % 60)}:08`;
-    }
-
-    document.getElementById('btn-freight').addEventListener('click', function() {
-      hasFreight = !hasFreight;
-      isFreightDiverted = false;
-      this.classList.toggle('active', hasFreight);
-      document.getElementById('txt-freight').innerText = hasFreight ? "ACTIVE" : "NONE";
-      document.getElementById('txt-freight').style.color = hasFreight ? "#ef4444" : "#10b981";
-      
-      const overtakeBtn = document.getElementById('btn-overtake');
-      overtakeBtn.style.display = hasFreight ? 'flex' : 'none';
-      document.getElementById('txt-overtake').innerText = "READY";
-      document.getElementById('txt-overtake').style.color = "#f59e0b";
-      overtakeBtn.classList.remove('active');
-
-      updateTelemetry();
-    });
-
-    document.getElementById('btn-overtake').addEventListener('click', function() {
-      if (!hasFreight) return;
-      isFreightDiverted = !isFreightDiverted;
-      this.classList.toggle('active', isFreightDiverted);
-      document.getElementById('txt-overtake').innerText = isFreightDiverted ? "DIVERTED" : "READY";
-      document.getElementById('txt-overtake').style.color = isFreightDiverted ? "#10b981" : "#f59e0b";
-      updateTelemetry();
-    });
-
-    document.getElementById('btn-station-dwell').addEventListener('click', function() {
-      if (isStationHalted) {
-        endStationDwell();
-        document.getElementById('txt-dwell-mode').innerText = "DEPARTED";
-        document.getElementById('txt-dwell-mode').style.color = "#10b981";
-      } else {
-        hasDepartedStation = false;
-        progress = 0.49;
-        startStationDwell();
-        document.getElementById('txt-dwell-mode').innerText = "HALTED";
-        document.getElementById('txt-dwell-mode').style.color = "#f59e0b";
-      }
-      updateTelemetry();
-    });
-
-    document.getElementById('btn-signal').addEventListener('click', function() {
-      hasSignal = !hasSignal;
-      this.classList.toggle('active', hasSignal);
-      document.getElementById('txt-signal').innerText = hasSignal ? "HALTED" : "OFF";
-      document.getElementById('txt-signal').style.color = hasSignal ? "#ef4444" : "#10b981";
-      updateTelemetry();
-    });
-
-    document.getElementById('btn-fog').addEventListener('click', function() {
-      hasFog = !hasFog;
-      this.classList.toggle('active', hasFog);
-      document.getElementById('txt-fog').innerText = hasFog ? "FOG" : "OFF";
-      document.getElementById('txt-fog').style.color = hasFog ? "#ef4444" : "#10b981";
-      updateTelemetry();
-    });
+    };
   </script>
 </body>
 </html>

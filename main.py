@@ -1,162 +1,155 @@
-import os
+﻿import asyncio
 import json
-import pickle
-from datetime import datetime, timedelta
-import pandas as pd
-from pydantic import BaseModel
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
 
-app = FastAPI(title="RailPulse Multi-Train Engine")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-# Load corridor and model
-with open("corridor.json", "r", encoding="utf-8") as f:
-    CORRIDOR = json.load(f)
-
-with open("model.pkl", "rb") as f:
-    MODEL = pickle.load(f)
-
-STATIONS_GEO = {
-    "NDLS": [28.6429, 77.2195],
-    "GZB":  [28.6679, 77.4326],
-    "ALJN": [27.8974, 78.0880],
-    "CNB":  [26.4539, 80.3510]
+# In-memory shared state for the corridor simulation
+simulation_state = {
+    "progress": 0.05,
+    "speed_kmh": 124.0,
+    "target_speed_kmh": 124.0,
+    "signal_aspect": "GREEN",
+    "delay_min": 0,
+    "has_freight": False,
+    "is_freight_diverted": False,
+    "is_station_halted": False,
+    "dwell_remaining_sec": 30.0,
+    "has_departed_station": False,
+    "has_signal_halt": False,
+    "has_fog": False
 }
 
-# State for both trains
-MULTI_TRAIN_STATE = {
-    "express": {
-        "train_number": "12424",
-        "train_name": "Rajdhani Superfast",
-        "type": "Express",
-        "current_segment_idx": 1,
-        "progress_pct": 30.0,
-        "signal_aspect": 2,  # Double Yellow behind freight
-        "active_tsr_kmph": 0
-    },
-    "freight": {
-        "train_number": "BOXN-7042",
-        "train_name": "Coal Freight Rake",
-        "type": "Freight",
-        "current_segment_idx": 1,
-        "progress_pct": 45.0,  # Ahead on track
-        "speed_kmph": 42.0,
-        "on_loop_line": False  # Flag for loop line overtake
-    },
-    "block_density": 3
-}
+active_connections = set()
 
-class MultiTelemetryUpdate(BaseModel):
-    express_progress: float
-    freight_progress: float
-    freight_loop_line: bool
-    signal_aspect: int
-    active_tsr: int
-    block_density: int
+# Background tick loop streaming live calculations (20 updates/sec)
+async def telemetry_broadcast_loop():
+    while True:
+        await asyncio.sleep(0.05)
+        if not active_connections:
+            continue
 
-def interpolate_geo(seg_idx: int, pct: float):
-    start = STATIONS_GEO[CORRIDOR[seg_idx]["from_station"]]
-    end = STATIONS_GEO[CORRIDOR[seg_idx]["to_station"]]
-    lat = start[0] + (end[0] - start[0]) * (pct / 100.0)
-    lng = start[1] + (end[1] - start[1]) * (pct / 100.0)
-    return [lat, lng]
+        s = simulation_state
 
-def compute_multi_eta():
-    now = datetime.now()
-    exp = MULTI_TRAIN_STATE["express"]
-    frt = MULTI_TRAIN_STATE["freight"]
-    cur_idx = exp["current_segment_idx"]
-    pct_left = (100.0 - exp["progress_pct"]) / 100.0
+        if s["is_station_halted"]:
+            s["target_speed_kmh"] = 0.0
+            s["signal_aspect"] = "RED"
+        elif s["has_signal_halt"]:
+            s["target_speed_kmh"] = 0.0
+            s["signal_aspect"] = "RED"
+            s["delay_min"] = 26
+        elif s["has_freight"] and not s["is_freight_diverted"]:
+            s["target_speed_kmh"] = 42.0
+            s["signal_aspect"] = "DOUBLE_YELLOW"
+            s["delay_min"] = 18
+        elif s["has_freight"] and s["is_freight_diverted"]:
+            s["target_speed_kmh"] = 124.0
+            s["signal_aspect"] = "GREEN"
+            s["delay_min"] = 2
+        elif s["has_fog"]:
+            s["target_speed_kmh"] = 60.0
+            s["signal_aspect"] = "YELLOW"
+            s["delay_min"] = 14
+        else:
+            s["target_speed_kmh"] = 124.0
+            s["signal_aspect"] = "GREEN"
+            s["delay_min"] = 0
 
-    seg_dist = CORRIDOR[cur_idx]["distance_km"]
-    if frt["on_loop_line"]:
-        headway = 18.0
-        aspect = 3  # Green
-    else:
-        gap_pct = max(frt["progress_pct"] - exp["progress_pct"], 0.5)
-        headway = (gap_pct / 100.0) * seg_dist
-        aspect = 1 if headway < 4.0 else exp["signal_aspect"]
+        # Acceleration / Deceleration
+        if s["speed_kmh"] < s["target_speed_kmh"]:
+            s["speed_kmh"] = min(s["speed_kmh"] + 1.2, s["target_speed_kmh"])
+        elif s["speed_kmh"] > s["target_speed_kmh"]:
+            s["speed_kmh"] = max(s["speed_kmh"] - 1.8, s["target_speed_kmh"])
 
-    cur_seg_features = pd.DataFrame([{
-        'segment_idx': cur_idx,
-        'nominal_time_min': CORRIDOR[cur_idx]['nominal_time_min'],
-        'headway_km': headway,
-        'signal_aspect': aspect,
-        'active_tsr_kmph': exp["active_tsr_kmph"],
-        'block_density': MULTI_TRAIN_STATE["block_density"]
-    }])
+        step = (s["speed_kmh"] / 124.0) * 0.0012
+        if not s["is_station_halted"] and not s["has_signal_halt"]:
+            s["progress"] += step
+            if s["progress"] >= 1.0:
+                s["progress"] = 0.0
+                s["has_departed_station"] = False
 
-    pred_full_cur_seg = float(MODEL.predict(cur_seg_features)[0])
-    remaining_cur_seg = pred_full_cur_seg * pct_left
+        if not s["is_station_halted"] and not s["has_departed_station"] and 0.485 <= s["progress"] <= 0.50:
+            s["is_station_halted"] = True
+            s["dwell_remaining_sec"] = 30.0
 
-    subsequent_time = sum(
-        float(MODEL.predict(pd.DataFrame([{
-            'segment_idx': idx,
-            'nominal_time_min': CORRIDOR[idx]['nominal_time_min'],
-            'headway_km': 15.0,
-            'signal_aspect': 3,
-            'active_tsr_kmph': 0,
-            'block_density': 1
-        }]))[0])
-        for idx in range(cur_idx + 1, len(CORRIDOR))
-    )
+        if s["is_station_halted"]:
+            s["dwell_remaining_sec"] = max(0.0, s["dwell_remaining_sec"] - 0.05)
+            if s["dwell_remaining_sec"] <= 0:
+                s["is_station_halted"] = False
+                s["has_departed_station"] = True
+                s["progress"] = 0.51
+                s["speed_kmh"] = 20.0
 
-    total_min = remaining_cur_seg + subsequent_time
-    dynamic_eta = now + timedelta(minutes=total_min)
+        lat = 28.6189 + s["progress"] * 0.04
+        lng = 77.2185 + s["progress"] * 0.04
+        dist_to_gzb = max(0.0, (0.49 - s["progress"]) * 35)
 
-    static_remaining = (CORRIDOR[cur_idx]['nominal_time_min'] * pct_left) + sum(
-        s['nominal_time_min'] for s in CORRIDOR[cur_idx + 1:]
-    )
-    static_eta = now + timedelta(minutes=static_remaining)
+        packet = {
+            "progress": s["progress"],
+            "speed_kmh": round(s["speed_kmh"], 1),
+            "signal_aspect": s["signal_aspect"],
+            "delay_min": s["delay_min"],
+            "is_station_halted": s["is_station_halted"],
+            "dwell_sec": int(s["dwell_remaining_sec"]),
+            "has_freight": s["has_freight"],
+            "is_freight_diverted": s["is_freight_diverted"],
+            "has_signal_halt": s["has_signal_halt"],
+            "has_fog": s["has_fog"],
+            "gps_lat": round(lat, 4),
+            "gps_lng": round(lng, 4),
+            "dist_to_gzb": round(dist_to_gzb, 1)
+        }
 
-    exp_coords = interpolate_geo(cur_idx, exp["progress_pct"])
-    frt_coords = interpolate_geo(cur_idx, frt["progress_pct"])
-    if frt["on_loop_line"]:
-        frt_coords = [frt_coords[0] + 0.04, frt_coords[1] + 0.04]
+        serialized = json.dumps(packet)
+        for client in list(active_connections):
+            try:
+                await client.send_text(serialized)
+            except Exception:
+                active_connections.remove(client)
 
-    return {
-        "express_coords": exp_coords,
-        "freight_coords": frt_coords,
-        "stations_geo": STATIONS_GEO,
-        "headway_km": round(headway, 1),
-        "freight_status": "Diverted to Loop Line (Overtake Active)" if frt["on_loop_line"] else "Occupying Main Line Ahead",
-        "signal_aspect_label": ["RED", "YELLOW", "DOUBLE YELLOW", "GREEN"][aspect],
-        "static_eta": static_eta.strftime("%H:%M"),
-        "dynamic_eta": dynamic_eta.strftime("%H:%M"),
-        "delay_min": round(total_min - static_remaining, 1),
-        "confidence": "96%" if frt["on_loop_line"] else "83%"
-    }
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(telemetry_broadcast_loop())
+    yield
+    task.cancel()
 
-@app.get("/api/eta")
-def get_eta():
-    return compute_multi_eta()
-
-@app.post("/api/update-telemetry")
-def update_telemetry(payload: MultiTelemetryUpdate):
-    MULTI_TRAIN_STATE["express"]["progress_pct"] = payload.express_progress
-    MULTI_TRAIN_STATE["freight"]["progress_pct"] = payload.freight_progress
-    MULTI_TRAIN_STATE["freight"]["on_loop_line"] = payload.freight_loop_line
-    MULTI_TRAIN_STATE["express"]["signal_aspect"] = payload.signal_aspect
-    MULTI_TRAIN_STATE["express"]["active_tsr_kmph"] = payload.active_tsr
-    MULTI_TRAIN_STATE["block_density"] = payload.block_density
-    return compute_multi_eta()
-
-@app.get("/", response_class=HTMLResponse)
-def serve_ui():
-    with open("static/index.html", "r", encoding="utf-8") as f:
-        return f.read()
-
-@app.get("/digital-twin", response_class=HTMLResponse)
-async def digital_twin():
-    with open("templates/digital_twin.html", "r", encoding="utf-8") as f:
-        return f.read()
+app = FastAPI(title="RailPulse Digital Twin Engine", lifespan=lifespan)
+templates = Jinja2Templates(directory="templates")
 
 @app.get("/railpulse-3d", response_class=HTMLResponse)
-async def get_railpulse_3d():
-    file_path = os.path.join(os.path.dirname(__file__), "templates", "railpulse_3d.html")
-    if not os.path.exists(file_path):
-        return HTMLResponse(content=f"<h1>Error: {file_path} not found</h1>", status_code=404)
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
+async def serve_prototype(request: Request):
+    return templates.TemplateResponse(request=request, name="railpulse_3d.html")
+
+@app.websocket("/ws/telemetry")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.add(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            payload = json.loads(data)
+            action = payload.get("action")
+
+            if action == "TOGGLE_FREIGHT":
+                simulation_state["has_freight"] = not simulation_state["has_freight"]
+                simulation_state["is_freight_diverted"] = False
+            elif action == "DIVERT_FREIGHT":
+                if simulation_state["has_freight"]:
+                    simulation_state["is_freight_diverted"] = not simulation_state["is_freight_diverted"]
+            elif action == "TOGGLE_SIGNAL":
+                simulation_state["has_signal_halt"] = not simulation_state["has_signal_halt"]
+            elif action == "TOGGLE_FOG":
+                simulation_state["has_fog"] = not simulation_state["has_fog"]
+            elif action == "FORCE_DEPARTURE":
+                simulation_state["is_station_halted"] = False
+                simulation_state["has_departed_station"] = True
+                simulation_state["dwell_remaining_sec"] = 0.0
+                simulation_state["progress"] = 0.51
+            elif action == "FORCE_HALT":
+                simulation_state["is_station_halted"] = True
+                simulation_state["dwell_remaining_sec"] = 30.0
+                simulation_state["progress"] = 0.49
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
