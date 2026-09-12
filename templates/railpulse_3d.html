@@ -1,0 +1,624 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RailPulse Engine - 3D Digital Twin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #0a0e17; }
+
+    #webgl-canvas {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* Top Left Status Pill */
+    .top-pill {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(16px);
+      padding: 10px 18px;
+      border-radius: 14px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      z-index: 100;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+    .pill-title { font-size: 14px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+    .pill-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+    /* Right Telemetry Sidebar (All 10 Parameters with Clean View Toggle) */
+    .sidebar {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 330px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.75);
+      z-index: 100;
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+      transition: all 0.3s ease;
+    }
+    .sidebar-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #38bdf8;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 6px;
+      margin-bottom: 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 7px;
+      font-size: 11.5px;
+    }
+    .metric-key { color: #94a3b8; max-width: 175px; line-height: 1.25; }
+    .metric-val { font-weight: 600; color: #f8fafc; font-family: "Courier New", monospace; text-align: right; }
+    .metric-val.good { color: #10b981; text-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
+    .metric-val.warn { color: #f59e0b; text-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+    .metric-val.alert { color: #ef4444; text-shadow: 0 0 6px rgba(239, 68, 68, 0.6); }
+
+    /* Clean View Toggle Button */
+    .toggle-view-btn {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      margin: 8px 0;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .toggle-view-btn:hover {
+      background: #0284c7;
+      color: #ffffff;
+    }
+
+    .more-parameters {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,255,255,0.1);
+    }
+
+    .sim-controls {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .btn {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #e2e8f0;
+      padding: 7px 12px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn:hover { background: #334155; border-color: #38bdf8; }
+    .btn.active { background: #0284c7; border-color: #38bdf8; color: #ffffff; }
+
+    /* Bottom HUD Holographic Panel (Exact replica from video) */
+    .hud-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(11, 15, 25, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border-radius: 14px;
+      padding: 9px 28px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.85);
+      z-index: 100;
+    }
+    .hud-col { display: flex; flex-direction: column; align-items: center; }
+    .hud-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; font-weight: 700; margin-bottom: 2px; }
+    .hud-val { font-family: "Courier New", monospace; font-size: 20px; font-weight: 700; color: #38bdf8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.8); }
+    .hud-sep { width: 1px; height: 28px; background: rgba(255,255,255,0.12); }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px), (orientation: portrait) {
+      .sidebar {
+        top: 68px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-height: calc(100vh - 170px);
+      }
+      .hud-bar {
+        bottom: 12px;
+        width: calc(100vw - 24px);
+        padding: 6px 14px;
+        gap: 12px;
+        justify-content: space-around;
+      }
+      .hud-val { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- WebGL Canvas for 3D Isometric View -->
+  <div id="webgl-canvas"></div>
+
+  <!-- Top-Left Branding -->
+  <div class="top-pill">
+    <div class="status-dot"></div>
+    <div>
+      <div class="pill-title">RailPulse Engine <span style="font-size: 11px; color: #38bdf8;">12424 Rajdhani</span></div>
+      <div class="pill-sub">ISRO RTIS Live Uplink • Automatic Block Signaling</div>
+    </div>
+  </div>
+
+  <!-- Sidebar: All 10 Parameters with Clean Toggle -->
+  <div class="sidebar">
+    <div class="sidebar-title">
+      <span>Operational Telemetry</span>
+      <span style="font-size:9.5px; color:#10b981;">ACTIVE</span>
+    </div>
+
+    <!-- Core Passenger Parameters (Visible by Default) -->
+    <div class="metric-row">
+      <span class="metric-key">🚦 Signal Aspect</span>
+      <span class="metric-val good" id="ui-signal">GREEN (ABS Clear)</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-key">⚡ Current Speed</span>
+      <span class="metric-val" id="ui-speed">124 km/h</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-key">⚠️ Current Delay</span>
+      <span class="metric-val good" id="ui-delay">+0 min (On Time)</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-key">📏 Distance Remaining</span>
+      <span class="metric-val" id="ui-distance">16.2 km (to GZB)</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-key">📡 GPS Position (RTIS)</span>
+      <span class="metric-val" id="ui-gps">28.6189°N, 77.2185°E</span>
+    </div>
+
+    <!-- Toggle to expand all technical parameters -->
+    <button class="toggle-view-btn" id="toggleParamsBtn" onclick="toggleDetails()">
+      ▼ Show All 10 Operational Parameters
+    </button>
+
+    <!-- Detailed Technical Parameters -->
+    <div class="more-parameters" id="detailedParams">
+      <div class="metric-row">
+        <span class="metric-key">🚉 Platform Availability</span>
+        <span class="metric-val good" id="ui-platform">PF #2 Available</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-key">⏳ Loading / Unload Dwell</span>
+        <span class="metric-val" id="ui-dwell">+3 min (Station Slack)</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-key">🕒 Scheduled Timetable</span>
+        <span class="metric-val" id="ui-schedule">Dep 16:55 | Arr 22:50</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-key">🌦️ Route Weather (Rain/Fog)</span>
+        <span class="metric-val good" id="ui-weather">Clear (Vis > 4000m)</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-key">🚂 Preceding Headway Gap</span>
+        <span class="metric-val good" id="ui-headway">12.5 km (Clear Block)</span>
+      </div>
+    </div>
+
+    <!-- Interactive Simulation Controls -->
+    <div class="sim-controls">
+      <div style="font-size: 9.5px; color: #94a3b8; font-weight:700;">INTERACTIVE SIMULATION:</div>
+      <button class="btn" id="btn-freight">
+        <span>Lagging Freight Ahead</span>
+        <span id="txt-freight" style="color:#ef4444;">NONE</span>
+      </button>
+      <button class="btn" id="btn-signal">
+        <span>Outer Signal Stop</span>
+        <span id="txt-signal" style="color:#10b981;">OFF</span>
+      </button>
+      <button class="btn" id="btn-fog">
+        <span>Route Fog Restriction</span>
+        <span id="txt-fog" style="color:#10b981;">OFF</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Holographic HUD -->
+  <div class="hud-bar">
+    <div class="hud-col">
+      <span class="hud-lbl">ETA</span>
+      <span class="hud-val" id="hud-eta">00:25:73</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-col">
+      <span class="hud-lbl">ETA</span>
+      <span class="hud-val" style="color:#22c55e;" id="hud-subeta">01:10:08</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-col">
+      <span class="hud-lbl">CLOCK</span>
+      <span class="hud-val" id="hud-clock">10:03:88</span>
+    </div>
+  </div>
+
+  <script>
+    // Expand/Collapse Details
+    let detailsExpanded = false;
+    function toggleDetails() {
+      detailsExpanded = !detailsExpanded;
+      const el = document.getElementById('detailedParams');
+      const btn = document.getElementById('toggleParamsBtn');
+      el.style.display = detailsExpanded ? 'flex' : 'none';
+      btn.innerText = detailsExpanded ? '▲ Hide Advanced Parameters' : '▼ Show All 10 Operational Parameters';
+    }
+
+    // --- Original Three.js 3D Isometric Engine from Video ---
+    const container = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0e17);
+    scene.fog = new THREE.FogExp2(0x0a0e17, 0.0035);
+
+    let aspect = window.innerWidth / window.innerHeight;
+    let d = 160;
+    const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
+    camera.position.set(180, 190, 180);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    // Studio Lighting
+    const ambientLight = new THREE.AmbientLight(0x2a3b55, 1.3);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(120, 200, 80);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const blueRimLight = new THREE.DirectionalLight(0x00f0ff, 0.85);
+    blueRimLight.position.set(-100, 80, -100);
+    scene.add(blueRimLight);
+
+    // Ground Plane & Dark Grid
+    const groundGeo = new THREE.PlaneGeometry(1200, 1200);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x0c121d });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(1200, 100, 0x1e293b, 0x111c2e);
+    grid.position.y = 0.2;
+    scene.add(grid);
+
+    // Isometric 3D City Buildings
+    const bMatDark = new THREE.MeshLambertMaterial({ color: 0x111827 });
+    const bMatMedium = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+    const winMatLit = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+    for (let x = -300; x <= 300; x += 38) {
+      for (let z = -300; z <= 300; z += 38) {
+        if (Math.abs(x - z) > 35) {
+          const h = Math.random() * 45 + 15;
+          const w = 24 + Math.random() * 6;
+          const dBox = 24 + Math.random() * 6;
+          const bGeo = new THREE.BoxGeometry(w, h, dBox);
+          const mat = Math.random() > 0.5 ? bMatDark : bMatMedium;
+          const building = new THREE.Mesh(bGeo, mat);
+          building.position.set(x + (Math.random() * 6 - 3), h / 2, z + (Math.random() * 6 - 3));
+          building.castShadow = true;
+          building.receiveShadow = true;
+          scene.add(building);
+
+          if (Math.random() > 0.4) {
+            const winGeo = new THREE.BoxGeometry(w + 0.4, 2, dBox + 0.4);
+            const winMesh = new THREE.Mesh(winGeo, winMatLit);
+            winMesh.position.set(building.position.x, h * 0.75, building.position.z);
+            scene.add(winMesh);
+          }
+        }
+      }
+    }
+
+    // Railway Track Curve
+    const trackCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-260, 0.5, -260),
+      new THREE.Vector3(-140, 0.5, -130),
+      new THREE.Vector3(-30, 0.5, -20),
+      new THREE.Vector3(70, 0.5, 60),
+      new THREE.Vector3(180, 0.5, 170),
+      new THREE.Vector3(260, 0.5, 260)
+    ]);
+
+    // Neon Tracks
+    const trackGlow = new THREE.Mesh(
+      new THREE.TubeGeometry(trackCurve, 120, 2.2, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff })
+    );
+    scene.add(trackGlow);
+
+    const trackCore = new THREE.Mesh(
+      new THREE.TubeGeometry(trackCurve, 120, 0.9, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    scene.add(trackCore);
+
+    // Overpass Bridge
+    const bridge = new THREE.Mesh(
+      new THREE.BoxGeometry(220, 4, 18),
+      new THREE.MeshLambertMaterial({ color: 0x1f2937 })
+    );
+    bridge.position.set(0, 8, 0);
+    bridge.rotation.y = Math.PI / 4;
+    bridge.castShadow = true;
+    scene.add(bridge);
+
+    // Station Waypoint Pins
+    [0.2, 0.52, 0.82].forEach(tVal => {
+      const pos = trackCurve.getPointAt(tVal);
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 14),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      pole.position.set(pos.x, 7, pos.z);
+      scene.add(pole);
+
+      const pinHead = new THREE.Mesh(
+        new THREE.TorusGeometry(3.5, 1, 16, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      pinHead.position.set(pos.x, 15, pos.z);
+      pinHead.rotation.x = Math.PI / 2;
+      scene.add(pinHead);
+
+      const pinDot = new THREE.Mesh(
+        new THREE.SphereGeometry(1.2, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x0f172a })
+      );
+      pinDot.position.set(pos.x, 15, pos.z);
+      scene.add(pinDot);
+    });
+
+    // 3D Aerodynamic Express Train
+    const trainGroup = new THREE.Group();
+    const trainMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+
+    const engine = new THREE.Mesh(new THREE.BoxGeometry(18, 5, 6), trainMat);
+    engine.position.set(10, 3, 0);
+    engine.castShadow = true;
+    trainGroup.add(engine);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(3.2, 7, 4), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
+    nose.rotation.z = -Math.PI / 2;
+    nose.position.set(21, 3, 0);
+    trainGroup.add(nose);
+
+    const lightSpot = new THREE.PointLight(0x38bdf8, 3, 30);
+    lightSpot.position.set(24, 3, 0);
+    trainGroup.add(lightSpot);
+
+    for (let c = 0; c < 2; c++) {
+      const coach = new THREE.Mesh(new THREE.BoxGeometry(15, 5, 5.8), trainMat);
+      coach.position.set(-8 - c * 17, 3, 0);
+      coach.castShadow = true;
+
+      const win = new THREE.Mesh(new THREE.BoxGeometry(13, 1.4, 6.2), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      win.position.set(-8 - c * 17, 3.5, 0);
+      trainGroup.add(coach);
+      trainGroup.add(win);
+    }
+    scene.add(trainGroup);
+
+    // Trailing Freight Train
+    const freightGroup = new THREE.Group();
+    const freightMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
+    for (let f = 0; f < 3; f++) {
+      const fBox = new THREE.Mesh(new THREE.BoxGeometry(14, 5.5, 5.8), freightMat);
+      fBox.position.set(-f * 16, 3, 0);
+      fBox.castShadow = true;
+      freightGroup.add(fBox);
+    }
+    scene.add(freightGroup);
+    freightGroup.visible = false;
+
+    // Simulation State
+    let progress = 0.05;
+    let hasFreight = false;
+    let hasSignal = false;
+    let hasFog = false;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!hasSignal) {
+        const speed = hasFreight ? 0.0003 : (hasFog ? 0.0006 : 0.0012);
+        progress = (progress + speed) % 1.0;
+      }
+
+      const pos = trackCurve.getPointAt(progress);
+      const tangent = trackCurve.getTangentAt(progress).normalize();
+
+      trainGroup.position.copy(pos);
+      trainGroup.lookAt(pos.clone().add(tangent));
+
+      camera.position.x = pos.x + 180;
+      camera.position.z = pos.z + 180;
+      camera.lookAt(pos.x, 0, pos.z);
+
+      const lat = 28.6189 + progress * 0.04;
+      const lng = 77.2185 + progress * 0.04;
+      document.getElementById('ui-gps').innerText = `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+
+      if (hasFreight) {
+        freightGroup.visible = true;
+        const fProg = (progress + 0.14) % 1.0;
+        const fPos = trackCurve.getPointAt(fProg);
+        const fTan = trackCurve.getTangentAt(fProg).normalize();
+        freightGroup.position.copy(fPos);
+        freightGroup.lookAt(fPos.clone().add(fTan));
+      } else {
+        freightGroup.visible = false;
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    function handleResize() {
+      aspect = window.innerWidth / window.innerHeight;
+      camera.left = -d * aspect;
+      camera.right = d * aspect;
+      camera.top = d;
+      camera.bottom = -d;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', handleResize);
+
+    // Sidebar & Option Handlers
+    function updateTelemetry() {
+      let delay = 0;
+      let speed = 124;
+      let sigText = "GREEN (ABS Clear)";
+      let sigClass = "good";
+      let pfText = "PF #2 Available";
+      let gapText = "12.5 km (Clear Block)";
+      let wText = "Clear (Vis > 4000m)";
+
+      if (hasFreight) {
+        delay += 18;
+        speed = 42;
+        sigText = "DOUBLE YELLOW (Trailing Headway)";
+        sigClass = "warn";
+        gapText = "1.8 km (Slow Freight Lagging)";
+      }
+      if (hasSignal) {
+        delay += 26;
+        speed = 0;
+        sigText = "RED (Outer Platform Queue)";
+        sigClass = "alert";
+        pfText = "PF #2 Occupied - Standby Outside";
+      }
+      if (hasFog) {
+        delay += 14;
+        speed = Math.min(speed, 60);
+        wText = "Dense Fog (TSR 60 km/h Active)";
+      }
+
+      const sigEl = document.getElementById('ui-signal');
+      sigEl.innerText = sigText;
+      sigEl.className = 'metric-val ' + sigClass;
+
+      document.getElementById('ui-speed').innerText = `${speed} km/h`;
+
+      const delEl = document.getElementById('ui-delay');
+      delEl.innerText = `+${delay} min`;
+      delEl.className = 'metric-val ' + (delay > 0 ? (delay > 20 ? 'alert' : 'warn') : 'good');
+
+      document.getElementById('ui-platform').innerText = pfText;
+      document.getElementById('ui-headway').innerText = gapText;
+      document.getElementById('ui-weather').innerText = wText;
+
+      const pad = n => String(n).padStart(2, '0');
+      const etaM = 25 + delay;
+      document.getElementById('hud-eta').innerText = `00:${pad(etaM % 60)}:73`;
+      document.getElementById('hud-subeta').innerText = `01:${pad((10 + delay) % 60)}:08`;
+    }
+
+    document.getElementById('btn-freight').addEventListener('click', function() {
+      hasFreight = !hasFreight;
+      this.classList.toggle('active', hasFreight);
+      document.getElementById('txt-freight').innerText = hasFreight ? "ACTIVE" : "NONE";
+      document.getElementById('txt-freight').style.color = hasFreight ? "#ef4444" : "#10b981";
+      updateTelemetry();
+    });
+
+    document.getElementById('btn-signal').addEventListener('click', function() {
+      hasSignal = !hasSignal;
+      this.classList.toggle('active', hasSignal);
+      document.getElementById('txt-signal').innerText = hasSignal ? "HALTED" : "OFF";
+      document.getElementById('txt-signal').style.color = hasSignal ? "#ef4444" : "#10b981";
+      updateTelemetry();
+    });
+
+    document.getElementById('btn-fog').addEventListener('click', function() {
+      hasFog = !hasFog;
+      this.classList.toggle('active', hasFog);
+      document.getElementById('txt-fog').innerText = hasFog ? "FOG" : "OFF";
+      document.getElementById('txt-fog').style.color = hasFog ? "#ef4444" : "#10b981";
+      updateTelemetry();
+    });
+  </script>
+</body>
+</html>

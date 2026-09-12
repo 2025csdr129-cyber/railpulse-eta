@@ -1,16 +1,18 @@
+import os
 import json
 import pickle
 from datetime import datetime, timedelta
+import pandas as pd
+from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-import pandas as pd
-from pydantic import BaseModel
 
 app = FastAPI(title="RailPulse Multi-Train Engine")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-with open("corridor.json") as f:
+# Load corridor and model
+with open("corridor.json", "r", encoding="utf-8") as f:
     CORRIDOR = json.load(f)
 
 with open("model.pkl", "rb") as f:
@@ -31,7 +33,7 @@ MULTI_TRAIN_STATE = {
         "type": "Express",
         "current_segment_idx": 1,
         "progress_pct": 30.0,
-        "signal_aspect": 2, # Double Yellow behind freight
+        "signal_aspect": 2,  # Double Yellow behind freight
         "active_tsr_kmph": 0
     },
     "freight": {
@@ -39,9 +41,9 @@ MULTI_TRAIN_STATE = {
         "train_name": "Coal Freight Rake",
         "type": "Freight",
         "current_segment_idx": 1,
-        "progress_pct": 45.0, # Ahead on track
+        "progress_pct": 45.0,  # Ahead on track
         "speed_kmph": 42.0,
-        "on_loop_line": False # Flag for loop line overtake
+        "on_loop_line": False  # Flag for loop line overtake
     },
     "block_density": 3
 }
@@ -68,14 +70,11 @@ def compute_multi_eta():
     cur_idx = exp["current_segment_idx"]
     pct_left = (100.0 - exp["progress_pct"]) / 100.0
 
-    # Calculate real-time headway to the freight train
     seg_dist = CORRIDOR[cur_idx]["distance_km"]
     if frt["on_loop_line"]:
-        # Freight moved to loop line -> clear track ahead!
         headway = 18.0
-        aspect = 3 # Green
+        aspect = 3  # Green
     else:
-        # Distance between freight and express
         gap_pct = max(frt["progress_pct"] - exp["progress_pct"], 0.5)
         headway = (gap_pct / 100.0) * seg_dist
         aspect = 1 if headway < 4.0 else exp["signal_aspect"]
@@ -92,7 +91,6 @@ def compute_multi_eta():
     pred_full_cur_seg = float(MODEL.predict(cur_seg_features)[0])
     remaining_cur_seg = pred_full_cur_seg * pct_left
 
-    # Subsequent segment traversal
     subsequent_time = sum(
         float(MODEL.predict(pd.DataFrame([{
             'segment_idx': idx,
@@ -108,15 +106,12 @@ def compute_multi_eta():
     total_min = remaining_cur_seg + subsequent_time
     dynamic_eta = now + timedelta(minutes=total_min)
 
-    # Static baseline (naive timetable calculation)
     static_remaining = (CORRIDOR[cur_idx]['nominal_time_min'] * pct_left) + sum(
         s['nominal_time_min'] for s in CORRIDOR[cur_idx + 1:]
     )
     static_eta = now + timedelta(minutes=static_remaining)
 
-    # Coordinates
     exp_coords = interpolate_geo(cur_idx, exp["progress_pct"])
-    # If freight is on loop line, give it a tiny visual offset so it looks parked off main track
     frt_coords = interpolate_geo(cur_idx, frt["progress_pct"])
     if frt["on_loop_line"]:
         frt_coords = [frt_coords[0] + 0.04, frt_coords[1] + 0.04]
@@ -151,4 +146,17 @@ def update_telemetry(payload: MultiTelemetryUpdate):
 @app.get("/", response_class=HTMLResponse)
 def serve_ui():
     with open("static/index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/digital-twin", response_class=HTMLResponse)
+async def digital_twin():
+    with open("templates/digital_twin.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/railpulse-3d", response_class=HTMLResponse)
+async def get_railpulse_3d():
+    file_path = os.path.join(os.path.dirname(__file__), "templates", "railpulse_3d.html")
+    if not os.path.exists(file_path):
+        return HTMLResponse(content=f"<h1>Error: {file_path} not found</h1>", status_code=404)
+    with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
