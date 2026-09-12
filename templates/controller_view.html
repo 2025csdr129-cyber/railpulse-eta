@@ -1,0 +1,394 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RailPulse COA - Section Controller & Loco Pilot Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Segoe UI", -apple-system, sans-serif; }
+    body { background: #090d16; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    header {
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; color: #38bdf8; letter-spacing: 0.5px; }
+    .badge-live { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; font-size: 10px; padding: 2px 8px; border-radius: 6px; }
+    .nav-links a { color: #94a3b8; text-decoration: none; font-size: 13px; font-weight: 600; margin-left: 16px; }
+    .nav-links a.active { color: #38bdf8; }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 16px;
+      padding: 16px 24px;
+      flex: 1;
+    }
+
+    .panel {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 8px;
+    }
+
+    .block-strip {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .block-cell {
+      background: #1e293b;
+      border-radius: 6px;
+      padding: 10px 6px;
+      text-align: center;
+      border: 1px solid #334155;
+    }
+    .block-cell.occupied { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
+    .block-cell.caution { background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; }
+    .block-cell.clear { background: rgba(16, 185, 129, 0.2); border-color: #10b981; }
+    .block-name { font-size: 9px; color: #94a3b8; font-weight: 700; }
+    .block-status { font-family: monospace; font-size: 11px; font-weight: 800; margin-top: 4px; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-card {
+      background: #131d31;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+    }
+    .metric-lbl { font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .metric-val { font-family: monospace; font-size: 18px; font-weight: 800; color: #f8fafc; margin-top: 3px; }
+    .metric-val.cyan { color: #38bdf8; }
+    .metric-val.green { color: #10b981; }
+    .metric-val.amber { color: #f59e0b; }
+    .metric-val.red { color: #ef4444; }
+
+    .action-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .action-btn:hover { background: #334155; border-color: #38bdf8; }
+    .action-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
+
+    .log-box {
+      flex: 1;
+      background: #080c14;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 11px;
+      overflow-y: auto;
+      max-height: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-entry { color: #94a3b8; }
+    .log-entry span.time { color: #64748b; }
+    .log-entry span.alert { color: #ef4444; }
+    .log-entry span.ok { color: #10b981; }
+    .log-entry span.info { color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>⚡ RailPulse COA</span>
+      <span class="badge-live">SECTION DISPATCH LIVE</span>
+    </div>
+    <div class="nav-links">
+      <a href="/railpulse-3d" target="_blank">📱 Switch to Passenger App ↗</a>
+      <a href="/controller" class="active">🖥️ COA Console</a>
+    </div>
+  </header>
+
+  <div class="dashboard">
+    <div class="panel">
+      <div class="panel-title">
+        <span>Active Rake Tracking</span>
+        <span style="color:#10b981;">#12424 RAJDHANI</span>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-lbl">Speed</div>
+          <div class="metric-val cyan" id="coa-speed">124 km/h</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-lbl">Signal Aspect</div>
+          <div class="metric-val green" id="coa-aspect">CLEAR (G)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-lbl">Section Delay</div>
+          <div class="metric-val green" id="coa-delay">+0 min</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-lbl">Traction Voltage</div>
+          <div class="metric-val cyan">25.2 kV</div>
+        </div>
+      </div>
+
+      <div class="panel-title">Headway Dynamics</div>
+      <div class="metric-card">
+        <div class="metric-lbl">Distance to Preceding Traffic</div>
+        <div class="metric-val green" id="coa-headway">12.5 km (Safe Gap)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-lbl">Kavach RTIS State</div>
+        <div class="metric-val cyan">SUPERVISED AUTO-BRAKE</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>NDLS - GZB - CNB Automatic Block Section Interlocking</span>
+        <span style="color:#38bdf8;">UP MAINLINE #1</span>
+      </div>
+
+      <div class="block-strip">
+        <div class="block-cell clear" id="bk-1">
+          <div class="block-name">BLOCK 101</div>
+          <div class="block-status" style="color:#10b981;">CLEAR</div>
+        </div>
+        <div class="block-cell clear" id="bk-2">
+          <div class="block-name">BLOCK 102</div>
+          <div class="block-status" style="color:#10b981;">CLEAR</div>
+        </div>
+        <div class="block-cell caution" id="bk-3">
+          <div class="block-name">GZB OUTER</div>
+          <div class="block-status" style="color:#f59e0b;" id="bk-3-txt">APPROACH</div>
+        </div>
+        <div class="block-cell clear" id="bk-4">
+          <div class="block-name">GZB PF #2</div>
+          <div class="block-status" style="color:#10b981;">CLEAR</div>
+        </div>
+        <div class="block-cell" id="bk-loop" style="border-color:#38bdf8;">
+          <div class="block-name">LOOP SIDING</div>
+          <div class="block-status" style="color:#94a3b8;" id="coa-loop-txt">IDLE</div>
+        </div>
+        <div class="block-cell clear" id="bk-5">
+          <div class="block-name">BLOCK 104</div>
+          <div class="block-status" style="color:#10b981;">CLEAR</div>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top:12px;">Dynamic Dispatch Advisory & Commands</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="action-btn" id="btn-toggle-freight" onclick="toggleFreight()">
+          <span>⚠️ Inject Slow Freight Ahead (Block 103)</span>
+          <span id="txt-f-status" style="color:#64748b;">OFF</span>
+        </button>
+
+        <button class="action-btn" id="btn-overtake" onclick="triggerOvertake()" style="border-color:#f59e0b;">
+          <span>🔀 Route Freight to Loop Siding (Authorize Overtake)</span>
+          <span id="txt-o-status" style="color:#f59e0b;">STANDBY</span>
+        </button>
+
+        <button class="action-btn" id="btn-outer-hold" onclick="toggleSignalHold()">
+          <span>⛔ Outer Home Signal Danger Interlock (Hold Queue)</span>
+          <span id="txt-s-status" style="color:#64748b;">OFF</span>
+        </button>
+      </div>
+
+      <div class="panel-title" style="margin-top:12px;">COA Event Logging</div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry"><span class="time">[22:00:12]</span> <span class="ok">SYS:</span> RTIS satellite link locked onto Loco #12424 WAP-7.</div>
+        <div class="log-entry"><span class="time">[22:01:45]</span> <span class="info">ABS:</span> Mainline block #101 to #104 clear. Green aspect authorized.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>Station Interlocking</span>
+        <span>GZB JN</span>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-lbl">Platform 2 Track Circuit</div>
+        <div class="metric-val green">BERTHING CLEARED</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-lbl">Turnout Switch #24A</div>
+        <div class="metric-val cyan" id="coa-turnout">NORMAL (MAINLINE)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-lbl">Section Speed Restriction (TSR)</div>
+        <div class="metric-val green">NONE (MPS 130 km/h)</div>
+      </div>
+
+      <div style="background:#131d31; border:1px solid #1e293b; padding:12px; border-radius:8px; margin-top:auto;">
+        <div style="font-size:11px; font-weight:700; color:#38bdf8; margin-bottom:4px;">💡 SIH Hackathon Jury Pitch</div>
+        <div style="font-size:10px; color:#94a3b8; line-height:1.4;">
+          Splits consumer journey visibility from heavy interlocking dispatch: Commuters get confidence-interval ETAs while COA controllers eliminate cascading delays via proactive loop-line divert algorithms.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Live Inter-Tab Synchronization Channel
+    const railPulseChannel = new BroadcastChannel('railpulse_state_sync');
+
+    let freightActive = false;
+    let freightDiverted = false;
+    let signalHold = false;
+
+    function broadcastState() {
+      railPulseChannel.postMessage({
+        hasFreight: freightActive,
+        isFreightDiverted: freightDiverted,
+        hasSignal: signalHold
+      });
+    }
+
+    function addLog(type, msg) {
+      const box = document.getElementById('logBox');
+      const time = new Date().toTimeString().split(' ')[0];
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      let cls = type === 'ok' ? 'ok' : (type === 'alert' ? 'alert' : 'info');
+      entry.innerHTML = `<span class="time">[${time}]</span> <span class="${cls}">${type.toUpperCase()}:</span> ${msg}`;
+      box.appendChild(entry);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function toggleFreight() {
+      freightActive = !freightActive;
+      freightDiverted = false;
+      document.getElementById('txt-f-status').innerText = freightActive ? "ACTIVE" : "OFF";
+      document.getElementById('txt-f-status').style.color = freightActive ? "#ef4444" : "#64748b";
+
+      if (freightActive) {
+        document.getElementById('coa-speed').innerText = "42 km/h";
+        document.getElementById('coa-aspect').innerText = "DOUBLE YELLOW";
+        document.getElementById('coa-aspect').className = "metric-val amber";
+        document.getElementById('coa-delay').innerText = "+18 min";
+        document.getElementById('coa-delay').className = "metric-val amber";
+        document.getElementById('coa-headway').innerText = "1.8 km (Caution Drag)";
+        document.getElementById('coa-headway').className = "metric-val amber";
+        document.getElementById('txt-o-status').innerText = "READY";
+        document.getElementById('txt-o-status').style.color = "#f59e0b";
+        addLog('alert', 'Preceding freight train lagging at 35 km/h in Block 103. Express speed capped.');
+      } else {
+        document.getElementById('coa-speed').innerText = "124 km/h";
+        document.getElementById('coa-aspect').innerText = "CLEAR (G)";
+        document.getElementById('coa-aspect').className = "metric-val green";
+        document.getElementById('coa-delay').innerText = "+0 min";
+        document.getElementById('coa-delay').className = "metric-val green";
+        document.getElementById('coa-headway').innerText = "12.5 km (Safe Gap)";
+        document.getElementById('coa-headway').className = "metric-val green";
+        document.getElementById('txt-o-status').innerText = "STANDBY";
+        document.getElementById('txt-o-status').style.color = "#f59e0b";
+        document.getElementById('coa-loop-txt').innerText = "IDLE";
+        document.getElementById('coa-loop-txt').style.color = "#94a3b8";
+        document.getElementById('coa-turnout').innerText = "NORMAL (MAINLINE)";
+        addLog('ok', 'Preceding block cleared. Line speed restored to 124 km/h.');
+      }
+      broadcastState();
+    }
+
+    function triggerOvertake() {
+      if (!freightActive) {
+        addLog('info', 'No freight in preceding block to divert.');
+        return;
+      }
+      freightDiverted = !freightDiverted;
+      document.getElementById('txt-o-status').innerText = freightDiverted ? "DIVERTED" : "READY";
+      document.getElementById('txt-o-status').style.color = freightDiverted ? "#10b981" : "#f59e0b";
+      document.getElementById('coa-loop-txt').innerText = freightDiverted ? "OCCUPIED (FREIGHT)" : "IDLE";
+      document.getElementById('coa-loop-txt').style.color = freightDiverted ? "#f59e0b" : "#94a3b8";
+      document.getElementById('coa-turnout').innerText = freightDiverted ? "REVERSE (SIDING #1)" : "NORMAL (MAINLINE)";
+
+      if (freightDiverted) {
+        document.getElementById('coa-speed').innerText = "124 km/h";
+        document.getElementById('coa-aspect').innerText = "CLEAR (G)";
+        document.getElementById('coa-aspect').className = "metric-val green";
+        document.getElementById('coa-delay').innerText = "+2 min";
+        document.getElementById('coa-delay').className = "metric-val green";
+        document.getElementById('coa-headway').innerText = "Siding Cleared (Loop #1)";
+        document.getElementById('coa-headway').className = "metric-val green";
+        addLog('ok', 'Turnout switch #24A thrown. Freight diverted to Siding #1. Mainline clear for Rajdhani express.');
+      } else {
+        document.getElementById('coa-speed').innerText = "42 km/h";
+        document.getElementById('coa-aspect').innerText = "DOUBLE YELLOW";
+        document.getElementById('coa-aspect').className = "metric-val amber";
+        document.getElementById('coa-delay').innerText = "+18 min";
+        document.getElementById('coa-delay').className = "metric-val amber";
+        document.getElementById('coa-headway').innerText = "1.8 km (Caution Drag)";
+        document.getElementById('coa-headway').className = "metric-val amber";
+        addLog('alert', 'Loop siding released. Freight back on mainline.');
+      }
+      broadcastState();
+    }
+
+    function toggleSignalHold() {
+      signalHold = !signalHold;
+      document.getElementById('txt-s-status').innerText = signalHold ? "ACTIVE" : "OFF";
+      document.getElementById('txt-s-status').style.color = signalHold ? "#ef4444" : "#64748b";
+      
+      const bk3 = document.getElementById('bk-3');
+      const bk3Txt = document.getElementById('bk-3-txt');
+
+      if (signalHold) {
+        bk3.className = "block-cell occupied";
+        bk3Txt.innerText = "DANGER (RED)";
+        bk3Txt.style.color = "#ef4444";
+        document.getElementById('coa-speed').innerText = "0 km/h";
+        document.getElementById('coa-aspect').innerText = "DANGER (RED)";
+        document.getElementById('coa-aspect').className = "metric-val red";
+        document.getElementById('coa-delay').innerText = "+26 min";
+        document.getElementById('coa-delay').className = "metric-val red";
+        addLog('alert', 'Home signal interlocking tripped to RED. Rajdhani held at Ghaziabad outer signal.');
+      } else {
+        bk3.className = "block-cell caution";
+        bk3Txt.innerText = "APPROACH";
+        bk3Txt.style.color = "#f59e0b";
+        document.getElementById('coa-speed').innerText = freightActive && !freightDiverted ? "42 km/h" : "124 km/h";
+        document.getElementById('coa-aspect').innerText = freightActive && !freightDiverted ? "DOUBLE YELLOW" : "CLEAR (G)";
+        document.getElementById('coa-aspect').className = freightActive && !freightDiverted ? "metric-val amber" : "metric-val green";
+        document.getElementById('coa-delay').innerText = freightActive && !freightDiverted ? "+18 min" : "+0 min";
+        document.getElementById('coa-delay').className = freightActive && !freightDiverted ? "metric-val amber" : "metric-val green";
+        addLog('ok', 'Interlock released. Starter signal GREEN authorized.');
+      }
+      broadcastState();
+    }
+  </script>
+</body>
+</html>
