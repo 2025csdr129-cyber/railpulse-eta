@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RailPulse 3D - Dynamic ETA & Telemetry Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0b0f19; color: #f1f5f9; overflow: hidden; }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+
+    /* Glassmorphism Panel Utilities */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+
+    /* Top Left Status Badge */
+    .top-badge {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 12px #22c55e;
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+    .train-name { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+    .train-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* Right Telemetry Sidebar (All 10 Parameters) */
+    .sidebar {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 340px;
+      max-height: calc(100vh - 40px);
+      padding: 18px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .sidebar-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 11px;
+      font-size: 12px;
+    }
+    .metric-key { color: #94a3b8; max-width: 180px; line-height: 1.3; }
+    .metric-val { font-weight: 600; color: #f8fafc; font-family: "Courier New", monospace; text-align: right; }
+    .metric-val.alert { color: #ef4444; font-weight: 700; text-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+    .metric-val.warn { color: #f59e0b; font-weight: 700; text-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
+    .metric-val.good { color: #10b981; font-weight: 700; text-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
+
+    /* Simulation Control Buttons */
+    .controls-box {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e2e8f0;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn:hover { background: #334155; border-color: #38bdf8; }
+    .btn.active { background: #0369a1; border-color: #38bdf8; color: #fff; }
+
+    /* Bottom HUD Holographic ETA Bar (As seen in video) */
+    .bottom-hud {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 30px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    .hud-col { display: flex; flex-direction: column; align-items: center; }
+    .hud-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; margin-bottom: 3px; }
+    .hud-num { font-family: "Courier New", monospace; font-size: 22px; font-weight: 700; color: #38bdf8; text-shadow: 0 0 14px rgba(56, 189, 248, 0.7); }
+    .hud-sep { width: 1px; height: 32px; background: rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas for 3D Isometric View -->
+  <div id="canvas-container">
+    <canvas id="twinCanvas"></canvas>
+  </div>
+
+  <!-- Top-Left Branding / Status Pill -->
+  <div class="glass-panel top-badge">
+    <div class="status-dot" id="live-dot"></div>
+    <div>
+      <div class="train-name">RailPulse Engine <span style="color:#38bdf8; font-size:12px;">#12424 Rajdhani</span></div>
+      <div class="train-sub">ISRO RTIS + Dynamic Spatio-Temporal Prediction</div>
+    </div>
+  </div>
+
+  <!-- Telemetry Details Sidebar (Directly implements all items in your image) -->
+  <div class="glass-panel sidebar">
+    <div class="sidebar-title">
+      <span>Operational Telemetry</span>
+      <span style="font-size:10px; color:#10b981;">LIVE SYNC</span>
+    </div>
+
+    <!-- 1. Signal Stops -->
+    <div class="metric-row">
+      <span class="metric-key">🚦 Signal Aspect</span>
+      <span class="metric-val good" id="ui-signal">GREEN (ABS Clear)</span>
+    </div>
+
+    <!-- 2. Platform Availability -->
+    <div class="metric-row">
+      <span class="metric-key">🚉 Platform Status</span>
+      <span class="metric-val good" id="ui-platform">PF #2 Available</span>
+    </div>
+
+    <!-- 3. Loading / Unloading Time -->
+    <div class="metric-row">
+      <span class="metric-key">⏳ Loading / Unload Dwell</span>
+      <span class="metric-val" id="ui-dwell">+3 min (Station Slack)</span>
+    </div>
+
+    <!-- 4. Train GPS Location -->
+    <div class="metric-row">
+      <span class="metric-key">📡 GPS Position (RTIS)</span>
+      <span class="metric-val" id="ui-gps">28.6139°N, 77.2090°E</span>
+    </div>
+
+    <!-- 5. Current Speed -->
+    <div class="metric-row">
+      <span class="metric-key">⚡ Current Speed</span>
+      <span class="metric-val" id="ui-speed">118 km/h</span>
+    </div>
+
+    <!-- 6. Current Delay -->
+    <div class="metric-row">
+      <span class="metric-key">⚠️ Current Delay</span>
+      <span class="metric-val good" id="ui-delay">+0 min (On Time)</span>
+    </div>
+
+    <!-- 7. Scheduled Timetable -->
+    <div class="metric-row">
+      <span class="metric-key">🕒 Scheduled Timetable</span>
+      <span class="metric-val" id="ui-schedule">Dep: 16:55 | Arr: 22:50</span>
+    </div>
+
+    <!-- 8. Distance Remaining -->
+    <div class="metric-row">
+      <span class="metric-key">📏 Distance to Next Junction</span>
+      <span class="metric-val" id="ui-distance">18.4 km (GZB)</span>
+    </div>
+
+    <!-- 9. Weather Forecast -->
+    <div class="metric-row">
+      <span class="metric-key">🌦️ Route Weather (Rain/Fog)</span>
+      <span class="metric-val good" id="ui-weather">Clear (Vis > 4000m)</span>
+    </div>
+
+    <!-- 10. Traffic in Tracks behind lagging trains -->
+    <div class="metric-row">
+      <span class="metric-key">🚂 Preceding Headway Lag</span>
+      <span class="metric-val good" id="ui-headway">11.8 km (Clear Gap)</span>
+    </div>
+
+    <!-- Interactive Simulation Controls -->
+    <div class="controls-box">
+      <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px; font-weight:700;">TEST DYNAMIC BOTTLENECKS:</div>
+      <button class="btn" id="btn-freight" onclick="toggleFreightHold()">
+        <span>Lagging Freight Train Ahead</span>
+        <span id="txt-freight" style="color:#ef4444;">NONE</span>
+      </button>
+      <button class="btn" id="btn-signal" onclick="toggleOuterSignal()">
+        <span>Outer Signal Stop</span>
+        <span id="txt-signal" style="color:#10b981;">OFF</span>
+      </button>
+      <button class="btn" id="btn-weather" onclick="toggleWeatherCondition()">
+        <span>Adverse Weather (Dense Fog)</span>
+        <span id="txt-weather" style="color:#10b981;">OFF</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom HUD ETA Display (Matches exact video layout) -->
+  <div class="glass-panel bottom-hud">
+    <div class="hud-col">
+      <span class="hud-lbl">DYNAMIC AI ETA</span>
+      <span class="hud-num" id="hud-eta">22:50:00</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-col">
+      <span class="hud-lbl">PREDICTED DELAY</span>
+      <span class="hud-num" style="color:#22c55e;" id="hud-diff">+00:00</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-col">
+      <span class="hud-lbl">CONFIDENCE WINDOW</span>
+      <span class="hud-num" id="hud-ci">±1.4 min (98%)</span>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('twinCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // 3D Isometric Projection Transformation
+    const isoAngle = Math.PI / 6;
+    const cosAngle = Math.cos(isoAngle);
+    const sinAngle = Math.sin(isoAngle);
+
+    function toIso(x, y, z = 0) {
+      const cx = canvas.width * 0.45;
+      const cy = canvas.height * 0.55;
+      const isoX = cx + (x - y) * cosAngle * 1.35;
+      const isoY = cy + (x + y) * sinAngle * 0.7 - z;
+      return { x: isoX, y: isoY };
+    }
+
+    // Generate 3D City Buildings along the corridor
+    const buildings = [];
+    for (let x = -600; x <= 600; x += 110) {
+      for (let y = -600; y <= 600; y += 110) {
+        if (Math.abs(x - y) > 90) { // Keep space open for railway corridor
+          buildings.push({
+            x: x + (Math.random() * 20 - 10),
+            y: y + (Math.random() * 20 - 10),
+            w: 65,
+            h: 65,
+            height: Math.floor(Math.random() * 120 + 40)
+          });
+        }
+      }
+    }
+
+    // Track Geometry
+    const trackPoints = [];
+    for (let i = -700; i <= 700; i += 20) {
+      trackPoints.push({ x: i, y: i });
+    }
+
+    // Stations / Waypoint Pins
+    const stations = [
+      { name: "Outer Junction", t: 0.25 },
+      { name: "Station Outer Signal", t: 0.55 },
+      { name: "Ghaziabad PF 2", t: 0.85 }
+    ];
+
+    let trainT = 0.1;
+    let freightT = 0.5;
+
+    // Operational Scenario State
+    let hasFreightAhead = false;
+    let hasOuterSignalHalt = false;
+    let hasFogWeather = false;
+
+    function drawCityBuilding(b) {
+      const p1 = toIso(b.x, b.y, 0);
+      const p2 = toIso(b.x + b.w, b.y, 0);
+      const p3 = toIso(b.x + b.w, b.y + b.h, 0);
+      const p4 = toIso(b.x, b.y + b.h, 0);
+
+      const t1 = toIso(b.x, b.y, b.height);
+      const t2 = toIso(b.x + b.w, b.y, b.height);
+      const t3 = toIso(b.x + b.w, b.y + b.h, b.height);
+      const t4 = toIso(b.x, b.y + b.h, b.height);
+
+      // Left Wall
+      ctx.fillStyle = "#111827";
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y); ctx.lineTo(t1.x, t1.y); ctx.lineTo(t4.x, t4.y); ctx.lineTo(p4.x, p4.y);
+      ctx.closePath(); ctx.fill();
+
+      // Right Wall
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(p4.x, p4.y); ctx.lineTo(t4.x, t4.y); ctx.lineTo(t3.x, t3.y); ctx.lineTo(p3.x, p3.y);
+      ctx.closePath(); ctx.fill();
+
+      // Roof
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.moveTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.lineTo(t4.x, t4.y);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.stroke();
+    }
+
+    function drawRailwayTracks() {
+      // Ambient Neon Track Glow
+      ctx.strokeStyle = "rgba(0, 240, 255, 0.4)";
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      trackPoints.forEach((pt, idx) => {
+        const p = toIso(pt.x, pt.y, 0);
+        if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+
+      // Core Solid Track Beam
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      trackPoints.forEach((pt, idx) => {
+        const p = toIso(pt.x, pt.y, 0);
+        if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+
+      // Draw Station Waypoint Pins
+      stations.forEach(st => {
+        const px = -700 + st.t * 1400;
+        const py = px;
+        const p = toIso(px, py, 25);
+
+        // Vertical Pin Pole
+        const pBase = toIso(px, py, 0);
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pBase.x, pBase.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+
+        // Pin Head
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pin Label Card
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+        ctx.fillRect(p.x - 45, p.y - 30, 90, 18);
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.strokeRect(p.x - 45, p.y - 30, 90, 18);
+        ctx.fillStyle = "#f1f5f9";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(st.name, p.x, p.y - 18);
+      });
+    }
+
+    function drawTrain(t, isFreight = false) {
+      const px = -700 + t * 1400;
+      const py = px;
+      const pos = toIso(px, py, 4);
+
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+
+      if (!isFreight) {
+        // High Speed Express Rake (Vande Bharat / Rajdhani Aesthetic)
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 20;
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 36, 12, isoAngle, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cockpit Stripe
+        ctx.fillStyle = "#0284c7";
+        ctx.beginPath();
+        ctx.ellipse(14, 6, 14, 5, isoAngle, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Slow Freight Train
+        ctx.fillStyle = "#b45309";
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 48, 14, isoAngle, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function updateSimulationData() {
+      let delayMin = 0;
+      let currentSpeed = 122;
+      let signalText = "GREEN (ABS Clear)";
+      let signalClass = "good";
+      let platformText = "PF #2 Available";
+      let headwayText = "12.4 km (Clear Gap)";
+      let weatherText = "Clear (Vis > 4000m)";
+
+      if (hasFreightAhead) {
+        delayMin += 18;
+        currentSpeed = 44;
+        signalText = "DOUBLE YELLOW (Trailing Headway)";
+        signalClass = "warn";
+        headwayText = "1.8 km (Slow Freight Lagging)";
+      }
+
+      if (hasOuterSignalHalt) {
+        delayMin += 26;
+        currentSpeed = 0;
+        signalText = "RED (Outer Platform Queue)";
+        signalClass = "alert";
+        platformText = "PF #2 Occupied - Standby Outside";
+      }
+
+      if (hasFogWeather) {
+        delayMin += 14;
+        currentSpeed = Math.min(currentSpeed, 60);
+        weatherText = "Dense Fog (TSR 60 km/h Active)";
+      }
+
+      // Update UI Sidebar
+      const sigEl = document.getElementById('ui-signal');
+      sigEl.innerText = signalText;
+      sigEl.className = 'metric-val ' + signalClass;
+
+      const spdEl = document.getElementById('ui-speed');
+      spdEl.innerText = currentSpeed + " km/h";
+
+      const delEl = document.getElementById('ui-delay');
+      delEl.innerText = "+" + delayMin + " min";
+      delEl.className = 'metric-val ' + (delayMin > 0 ? (delayMin > 20 ? 'alert' : 'warn') : 'good');
+
+      document.getElementById('ui-platform').innerText = platformText;
+      document.getElementById('ui-headway').innerText = headwayText;
+      document.getElementById('ui-weather').innerText = weatherText;
+
+      // Update Bottom Telemetry HUD
+      const baseHour = 22;
+      let totalMin = 50 + delayMin;
+      let extraHour = Math.floor(totalMin / 60);
+      let finMin = totalMin % 60;
+      let finHour = (baseHour + extraHour) % 24;
+
+      const pad = (n) => String(n).padStart(2, '0');
+      document.getElementById('hud-eta').innerText = `${pad(finHour)}:${pad(finMin)}:00`;
+      
+      const hudDiff = document.getElementById('hud-diff');
+      hudDiff.innerText = `+${pad(Math.floor(delayMin / 60))}:${pad(delayMin % 60)}`;
+      hudDiff.style.color = delayMin > 0 ? (delayMin > 20 ? '#ef4444' : '#f59e0b') : '#22c55e';
+    }
+
+    // Toggle Handlers for testing live constraints
+    window.toggleFreightHold = function() {
+      hasFreightAhead = !hasFreightAhead;
+      document.getElementById('btn-freight').classList.toggle('active', hasFreightAhead);
+      document.getElementById('txt-freight').innerText = hasFreightAhead ? "ACTIVE" : "NONE";
+      document.getElementById('txt-freight').style.color = hasFreightAhead ? "#ef4444" : "#10b981";
+      updateSimulationData();
+    };
+
+    window.toggleOuterSignal = function() {
+      hasOuterSignalHalt = !hasOuterSignalHalt;
+      document.getElementById('btn-signal').classList.toggle('active', hasOuterSignalHalt);
+      document.getElementById('txt-signal').innerText = hasOuterSignalHalt ? "HALTED" : "OFF";
+      document.getElementById('txt-signal').style.color = hasOuterSignalHalt ? "#ef4444" : "#10b981";
+      updateSimulationData();
+    };
+
+    window.toggleWeatherCondition = function() {
+      hasFogWeather = !hasFogWeather;
+      document.getElementById('btn-weather').classList.toggle('active', hasFogWeather);
+      document.getElementById('txt-weather').innerText = hasFogWeather ? "FOG" : "OFF";
+      document.getElementById('txt-weather').style.color = hasFogWeather ? "#ef4444" : "#10b981";
+      updateSimulationData();
+    };
+
+    // Main 60 FPS Render Loop
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw 3D Environment
+      buildings.forEach(drawCityBuilding);
+      drawRailwayTracks();
+
+      // Move Trains
+      if (!hasOuterSignalHalt) {
+        const speedFactor = hasFreightAhead ? 0.0004 : (hasFogWeather ? 0.0007 : 0.0012);
+        trainT = (trainT + speedFactor) % 1.0;
+      }
+      drawTrain(trainT, false);
+
+      if (hasFreightAhead) {
+        freightT = (trainT + 0.12) % 1.0;
+        drawTrain(freightT, true);
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    render();
+    updateSimulationData();
+  </script>
+</body>
+</html>

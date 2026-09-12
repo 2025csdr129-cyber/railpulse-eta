@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RailPulse - Dedicated Straight Rail Corridor</title>
+  <title>RailPulse - Dedicated Rail Corridor with Station Halts</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -132,6 +132,27 @@
       transform: scale(1.04);
     }
 
+    /* Station Alert Banner */
+    .station-banner {
+      position: absolute;
+      top: 92px;
+      left: 14px;
+      right: 14px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #38bdf8;
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 150;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .station-banner-txt { font-size: 10.5px; font-weight: 700; color: #f8fafc; }
+    .station-dwell-chip { font-family: "Courier New", monospace; font-size: 12px; font-weight: 700; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 4px; }
+
     /* Slide-out Telemetry Drawer */
     .telemetry-drawer {
       position: absolute;
@@ -258,16 +279,22 @@
       <!-- Top Bar -->
       <div class="top-bar">
         <div class="top-pill">
-          <div class="status-dot"></div>
+          <div class="status-dot" id="pill-status-dot"></div>
           <div>
-            <div class="pill-title">RailPulse #12424 Rajdhani</div>
-            <div class="pill-sub">ISRO RTIS Live Uplink</div>
+            <div class="pill-title" id="pill-train-title">RailPulse #12424 Rajdhani</div>
+            <div class="pill-sub" id="pill-train-sub">ISRO RTIS Live Uplink</div>
           </div>
         </div>
 
         <button class="telemetry-tab-btn" onclick="openDrawer()">
           <span>📊 Telemetry</span>
         </button>
+      </div>
+
+      <!-- Live Station Halt & Dwell Banner -->
+      <div class="station-banner" id="stationBanner">
+        <div class="station-banner-txt" id="bannerTxt">🚉 HALTED AT GHAZIABAD (PF #2)</div>
+        <div class="station-dwell-chip" id="dwellChip">00:30</div>
       </div>
 
       <!-- Slide-Out Drawer -->
@@ -291,7 +318,7 @@
             <span class="metric-val good" id="ui-delay">+0 min (On Time)</span>
           </div>
           <div class="metric-row">
-            <span class="metric-key">📏 Distance Remaining</span>
+            <span class="metric-key">📏 Distance to Next Stn</span>
             <span class="metric-val" id="ui-distance">16.2 km (to GZB)</span>
           </div>
           <div class="metric-row">
@@ -304,7 +331,7 @@
           </div>
           <div class="metric-row">
             <span class="metric-key">⏳ Loading / Dwell Time</span>
-            <span class="metric-val" id="ui-dwell">+3 min (Slack)</span>
+            <span class="metric-val" id="ui-dwell">Scheduled 30s Stop</span>
           </div>
           <div class="metric-row">
             <span class="metric-key">🕒 Timetable</span>
@@ -320,7 +347,11 @@
           </div>
 
           <div class="sim-controls">
-            <div style="font-size: 9.5px; color: #94a3b8; font-weight:700; margin-bottom: 2px;">SIMULATE BOTTLENECKS:</div>
+            <div style="font-size: 9.5px; color: #94a3b8; font-weight:700; margin-bottom: 2px;">INTERACTIVE CONTROLS:</div>
+            <button class="btn" id="btn-station-dwell">
+              <span>Station Dwell Mode</span>
+              <span id="txt-dwell-mode" style="color:#10b981;">AUTO</span>
+            </button>
             <button class="btn" id="btn-freight">
               <span>Lagging Freight Ahead</span>
               <span id="txt-freight" style="color:#ef4444;">NONE</span>
@@ -372,7 +403,6 @@
     let aspect = w / h;
     let d = 165;
 
-    // Angled isometric camera looking down the corridor along the track
     const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1200);
     camera.position.set(45, 175, 125);
     camera.lookAt(0, 0, 0);
@@ -398,17 +428,17 @@
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // Ballast Bed (Foundation)
-    const ballastGeo = new THREE.BoxGeometry(16, 0.7, 1200);
+    // Ballast Bed
+    const ballastGeo = new THREE.BoxGeometry(16, 0.7, 1400);
     const ballastMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
     const ballastMesh = new THREE.Mesh(ballastGeo, ballastMat);
     ballastMesh.position.set(0, 0.35, 0);
     scene.add(ballastMesh);
 
-    // Sleepers (Crossties) across track
+    // Sleepers (Crossties)
     const sleeperGeo = new THREE.BoxGeometry(11, 0.35, 1.6);
     const sleeperMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
-    for (let z = -580; z <= 580; z += 4.5) {
+    for (let z = -680; z <= 680; z += 4.5) {
       const sleeper = new THREE.Mesh(sleeperGeo, sleeperMat);
       sleeper.position.set(0, 0.45, z);
       scene.add(sleeper);
@@ -417,60 +447,55 @@
     // Glowing Twin Steel Rails
     [-3.2, 3.2].forEach(xOffset => {
       const glowMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.8, 0.7, 1200),
+        new THREE.BoxGeometry(0.8, 0.7, 1400),
         new THREE.MeshBasicMaterial({ color: 0x00f0ff })
       );
       glowMesh.position.set(xOffset, 0.75, 0);
       scene.add(glowMesh);
 
       const steelMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.35, 0.3, 1200),
+        new THREE.BoxGeometry(0.35, 0.3, 1400),
         new THREE.MeshBasicMaterial({ color: 0xffffff })
       );
       steelMesh.position.set(xOffset, 0.95, 0);
       scene.add(steelMesh);
     });
 
-    // Overhead Catenary (OHE) Traction Masts along the line
+    // Overhead Catenary (OHE) Traction Masts
     const mastMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
-    for (let z = -550; z <= 550; z += 45) {
-      // Left vertical post
+    for (let z = -650; z <= 650; z += 45) {
       const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 20), mastMat);
       postL.position.set(-10, 10, z);
       scene.add(postL);
 
-      // Right vertical post
       const postR = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 20), mastMat);
       postR.position.set(10, 10, z);
       scene.add(postR);
 
-      // Horizontal cross-arm truss
       const arm = new THREE.Mesh(new THREE.BoxGeometry(20.5, 0.4, 0.4), mastMat);
       arm.position.set(0, 19, z);
       scene.add(arm);
     }
 
-    // Overhead Wire
     const wire = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 1200),
+      new THREE.BoxGeometry(0.1, 0.1, 1400),
       new THREE.MeshBasicMaterial({ color: 0x94a3b8 })
     );
     wire.position.set(0, 17.5, 0);
     scene.add(wire);
 
-    // --- STATION PLATFORMS & SIGNALS ---
+    // Stations
     const stations = [
       { name: "NDLS - New Delhi", sub: "ORIGIN STATION (PF #16)", z: -320 },
-      { name: "Ghaziabad Jn (GZB)", sub: "JUNCTION STOP (PF #2)", z: 0 },
-      { name: "Kanpur Central (CNB)", sub: "TERMINAL PLATFORM", z: 320 }
+      { name: "Ghaziabad Jn (GZB)", sub: "PLATFORM #2 • SCHEDULED STOP", z: 0 },
+      { name: "Kanpur Central (CNB)", sub: "TERMINAL PLATFORM", z: 340 }
     ];
 
     const signalGantries = [];
 
-    // Helper: 3D Canvas Signboard
     function createStationSprite(name, sub) {
       const canvas = document.createElement('canvas');
-      canvas.width = 340;
+      canvas.width = 360;
       canvas.height = 95;
       const ctx = canvas.getContext('2d');
 
@@ -478,65 +503,57 @@
       ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.roundRect(10, 10, 320, 75, 14);
+      ctx.roundRect(10, 10, 340, 75, 14);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 26px sans-serif";
+      ctx.font = "bold 24px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(name, 170, 46);
+      ctx.fillText(name, 180, 46);
 
       ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 15px monospace";
-      ctx.fillText(sub, 170, 70);
+      ctx.font = "bold 14px monospace";
+      ctx.fillText(sub, 180, 70);
 
       const texture = new THREE.CanvasTexture(canvas);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-      sprite.scale.set(40, 11, 1);
+      sprite.scale.set(42, 11, 1);
       return sprite;
     }
 
     stations.forEach(st => {
-      // 1. Double-Sided Platforms (Left & Right)
       [-1, 1].forEach(side => {
         const platX = side * 15;
-        const platGeo = new THREE.BoxGeometry(13, 2.0, 80);
+        const platGeo = new THREE.BoxGeometry(13, 2.0, 90);
         const platMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
         const plat = new THREE.Mesh(platGeo, platMat);
         plat.position.set(platX, 1.0, st.z);
         scene.add(plat);
 
-        // Platform Roof Canopy
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(15, 0.7, 76), new THREE.MeshLambertMaterial({ color: 0x0f172a }));
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(15, 0.7, 86), new THREE.MeshLambertMaterial({ color: 0x0f172a }));
         roof.position.set(0, 8.5, 0);
         plat.add(roof);
 
-        // Canopy Support Pillars
-        [-28, 0, 28].forEach(pz => {
+        [-32, 0, 32].forEach(pz => {
           const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8.5), new THREE.MeshLambertMaterial({ color: 0x64748b }));
           pillar.position.set(0, 4.25, pz);
           plat.add(pillar);
         });
 
-        // Glowing Safety Edge Warning Strip
         const edge = new THREE.Mesh(
-          new THREE.BoxGeometry(0.5, 0.3, 80),
+          new THREE.BoxGeometry(0.5, 0.3, 90),
           new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
         );
         edge.position.set(-side * 6.3, 1.05, 0);
         plat.add(edge);
       });
 
-      // 2. Station Overhead Signboard
       const sign = createStationSprite(st.name, st.sub);
       sign.position.set(0, 22, st.z);
       scene.add(sign);
 
-      // 3. Indian Railway-Style Overhead Signal Gantry (Spans over track)
-      const gantryZ = st.z - 55; // 55m before platform entry
-
-      // Left & Right Tower Columns
+      const gantryZ = st.z - 55;
       const colL = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 22), new THREE.MeshLambertMaterial({ color: 0x475569 }));
       colL.position.set(-11, 11, gantryZ);
       scene.add(colL);
@@ -545,17 +562,14 @@
       colR.position.set(11, 11, gantryZ);
       scene.add(colR);
 
-      // Overhead Crossbar Structure
       const crossbar = new THREE.Mesh(new THREE.BoxGeometry(22.5, 1.2, 1.6), new THREE.MeshLambertMaterial({ color: 0x334155 }));
       crossbar.position.set(0, 19, gantryZ);
       scene.add(crossbar);
 
-      // Signal Aspect Box (Vertical 3-lens housing)
       const sigBox = new THREE.Mesh(new THREE.BoxGeometry(2.4, 6.5, 1.4), new THREE.MeshLambertMaterial({ color: 0x0f172a }));
       sigBox.position.set(-4, 15.5, gantryZ);
       scene.add(sigBox);
 
-      // 3 Lenses: Red (Top), Yellow (Middle), Green (Bottom)
       const redLamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 14), new THREE.MeshBasicMaterial({ color: 0x330000 }));
       redLamp.position.set(0, 2.0, -0.7);
       sigBox.add(redLamp);
@@ -571,27 +585,23 @@
       signalGantries.push({ red: redLamp, yellow: yellowLamp, green: greenLamp });
     });
 
-    // --- AERODYNAMIC TRAIN (Forward along +Z) ---
+    // Aerodynamic Train
     const trainGroup = new THREE.Group();
     const trainMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 
-    // Locomotive Engine
     const engine = new THREE.Mesh(new THREE.BoxGeometry(6, 4.8, 20), trainMat);
     engine.position.set(0, 2.9, 10);
     trainGroup.add(engine);
 
-    // Aerodynamic Nose Cone
     const nose = new THREE.Mesh(new THREE.ConeGeometry(3.1, 7, 4), new THREE.MeshLambertMaterial({ color: 0x0284c7 }));
     nose.rotation.x = Math.PI / 2;
     nose.position.set(0, 2.9, 21.5);
     trainGroup.add(nose);
 
-    // Headlight Spot
     const lightSpot = new THREE.PointLight(0x38bdf8, 3.2, 40);
     lightSpot.position.set(0, 2.9, 24);
     trainGroup.add(lightSpot);
 
-    // Coaches
     for (let c = 0; c < 2; c++) {
       const zPos = -10 - c * 21;
       const coach = new THREE.Mesh(new THREE.BoxGeometry(5.8, 4.8, 17), trainMat);
@@ -620,32 +630,118 @@
     scene.add(freightGroup);
     freightGroup.visible = false;
 
-    // Animation & Controls State
+    // --- SIMULATION & RESOLVED DWELL LOGIC ---
     let progress = 0.05;
+    let currentSpeedKmh = 124;
+    let targetSpeedKmh = 124;
+
     let hasFreight = false;
     let hasSignal = false;
     let hasFog = false;
 
+    // Station State Guards
+    let autoStationDwell = true;
+    let isStationHalted = false;
+    let hasDepartedStation = false; // Prevents re-halting at the same station on the same lap
+    let dwellRemainingSec = 30;     // 30s demonstration dwell
+    let dwellTimerInterval = null;
+
+    function startStationDwell() {
+      if (hasDepartedStation) return;
+      isStationHalted = true;
+      targetSpeedKmh = 0;
+      dwellRemainingSec = 30; // Clean 30-sec demo countdown
+      document.getElementById('stationBanner').style.display = 'flex';
+      document.getElementById('pill-train-sub').innerText = "Halted at GZB (PF #2) • Boarding";
+      document.getElementById('dwellChip').innerText = "00:30";
+      document.getElementById('ui-dwell').innerText = "Dwell Active: 00:30";
+
+      if (dwellTimerInterval) clearInterval(dwellTimerInterval);
+      dwellTimerInterval = setInterval(() => {
+        dwellRemainingSec--;
+        if (dwellRemainingSec <= 0) {
+          endStationDwell();
+        } else {
+          const m = Math.floor(dwellRemainingSec / 60);
+          const s = dwellRemainingSec % 60;
+          const fmt = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          document.getElementById('dwellChip').innerText = fmt;
+          document.getElementById('ui-dwell').innerText = `Dwell Active: ${fmt}`;
+        }
+      }, 1000);
+      updateTelemetry();
+    }
+
+    function endStationDwell() {
+      if (dwellTimerInterval) clearInterval(dwellTimerInterval);
+      dwellTimerInterval = null;
+      isStationHalted = false;
+      hasDepartedStation = true; // Mark as cleared
+
+      // Nudge train past the detection boundary so it starts rolling forward immediately
+      progress = 0.51;
+
+      document.getElementById('stationBanner').style.display = 'none';
+      document.getElementById('ui-dwell').innerText = "Departure Cleared";
+      document.getElementById('pill-train-sub').innerText = "Departing GZB • Mainline Accelerating";
+      
+      // Restore appropriate route cruising speed
+      targetSpeedKmh = hasFreight ? 42 : (hasFog ? 60 : 124);
+      currentSpeedKmh = 18; // Kickstart initial roll
+      updateTelemetry();
+    }
+
     function animate() {
       requestAnimationFrame(animate);
-      if (!hasSignal) {
-        const speed = hasFreight ? 0.0003 : (hasFog ? 0.0006 : 0.0012);
-        progress = (progress + speed) % 1.0;
+
+      // Physics: Deceleration / Acceleration
+      if (currentSpeedKmh < targetSpeedKmh) {
+        currentSpeedKmh = Math.min(currentSpeedKmh + 0.9, targetSpeedKmh);
+      } else if (currentSpeedKmh > targetSpeedKmh) {
+        currentSpeedKmh = Math.max(currentSpeedKmh - 1.4, targetSpeedKmh);
       }
 
-      const trainZ = -520 + progress * 1040;
+      // Convert speed to track advancement
+      const step = (currentSpeedKmh / 124) * 0.0012;
+      if (!isStationHalted && !hasSignal) {
+        progress += step;
+        if (progress >= 1.0) {
+          progress = 0.0;
+          hasDepartedStation = false; // Reset station stop clearance for the next lap
+        }
+      }
+
+      // Detect Ghaziabad station arrival once per lap
+      if (autoStationDwell && !isStationHalted && !hasDepartedStation && progress >= 0.485 && progress <= 0.50) {
+        startStationDwell();
+      }
+
+      const trainZ = -540 + progress * 1080;
       trainGroup.position.set(0, 0, trainZ);
 
+      // Camera tracking
       camera.position.z = trainZ + 120;
       camera.lookAt(0, 0, trainZ);
+
+      // Distance remaining update
+      if (isStationHalted) {
+        document.getElementById('ui-distance').innerText = "0.0 km (At Platform)";
+      } else if (!hasDepartedStation && progress < 0.49) {
+        const dist = ((0.49 - progress) * 35).toFixed(1);
+        document.getElementById('ui-distance').innerText = `${dist} km (to GZB)`;
+      } else {
+        const distToCnb = Math.max(0, ((0.85 - progress) * 35)).toFixed(1);
+        document.getElementById('ui-distance').innerText = `${distToCnb} km (to CNB)`;
+      }
 
       const lat = 28.6189 + progress * 0.04;
       const lng = 77.2185 + progress * 0.04;
       document.getElementById('ui-gps').innerText = `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+      document.getElementById('ui-speed').innerText = `${Math.round(currentSpeedKmh)} km/h`;
 
       if (hasFreight) {
         freightGroup.visible = true;
-        const fZ = -520 + ((progress + 0.14) % 1.0) * 1040;
+        const fZ = -540 + ((progress + 0.14) % 1.0) * 1080;
         freightGroup.position.set(0, 0, fZ);
       } else {
         freightGroup.visible = false;
@@ -657,7 +753,6 @@
 
     function updateTelemetry() {
       let delay = 0;
-      let speed = 124;
       let sigText = "GREEN (ABS Clear)";
       let sigClass = "good";
       let pfText = "PF #2 Available";
@@ -666,34 +761,40 @@
 
       let rColor = 0x330000;
       let yColor = 0x332200;
-      let gColor = 0x10b981; // Green on by default
+      let gColor = 0x10b981;
 
-      if (hasFreight) {
+      if (isStationHalted) {
+        targetSpeedKmh = 0;
+        sigText = "RED (Station Starter Aspect)";
+        sigClass = "warn";
+        pfText = "PF #2 Berthing • Boarding Active";
+        gColor = 0x003311;
+        rColor = 0xef4444;
+      } else if (hasFreight) {
         delay += 18;
-        speed = 42;
+        targetSpeedKmh = 42;
         sigText = "DOUBLE YELLOW";
         sigClass = "warn";
         gapText = "1.8 km (Slow Freight Lagging)";
         gColor = 0x003311;
-        yColor = 0xf59e0b; // Yellow on
-      }
-      if (hasSignal) {
+        yColor = 0xf59e0b;
+      } else if (hasSignal) {
         delay += 26;
-        speed = 0;
+        targetSpeedKmh = 0;
         sigText = "RED (Outer Signal Halt)";
         sigClass = "alert";
         pfText = "PF #2 Occupied - Standby Outside";
         gColor = 0x003311;
         yColor = 0x332200;
-        rColor = 0xef4444; // Red on
-      }
-      if (hasFog) {
+        rColor = 0xef4444;
+      } else if (hasFog) {
         delay += 14;
-        speed = Math.min(speed, 60);
+        targetSpeedKmh = 60;
         wText = "Dense Fog (TSR 60 km/h Active)";
+      } else {
+        targetSpeedKmh = 124;
       }
 
-      // Update All 3D Signal Gantries
       signalGantries.forEach(sg => {
         sg.red.material.color.setHex(rColor);
         sg.yellow.material.color.setHex(yColor);
@@ -703,7 +804,6 @@
       const sigEl = document.getElementById('ui-signal');
       sigEl.innerText = sigText;
       sigEl.className = 'metric-val ' + sigClass;
-      document.getElementById('ui-speed').innerText = `${speed} km/h`;
       const delEl = document.getElementById('ui-delay');
       delEl.innerText = `+${delay} min`;
       delEl.className = 'metric-val ' + (delay > 0 ? (delay > 20 ? 'alert' : 'warn') : 'good');
@@ -716,6 +816,22 @@
       document.getElementById('hud-eta').innerText = `00:${pad(etaM % 60)}:73`;
       document.getElementById('hud-subeta').innerText = `01:${pad((10 + delay) % 60)}:08`;
     }
+
+    // Interactive button: Force halt or force departure
+    document.getElementById('btn-station-dwell').addEventListener('click', function() {
+      if (isStationHalted) {
+        endStationDwell();
+        document.getElementById('txt-dwell-mode').innerText = "DEPARTED";
+        document.getElementById('txt-dwell-mode').style.color = "#10b981";
+      } else {
+        hasDepartedStation = false;
+        progress = 0.49;
+        startStationDwell();
+        document.getElementById('txt-dwell-mode').innerText = "HALTED";
+        document.getElementById('txt-dwell-mode').style.color = "#f59e0b";
+      }
+      updateTelemetry();
+    });
 
     document.getElementById('btn-freight').addEventListener('click', function() {
       hasFreight = !hasFreight;
