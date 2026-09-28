@@ -1,39 +1,24 @@
-# 🚆 RailPulse: Spatio-Temporal Dynamic ETA Engine for Indian Railways
+# RailPulse Engine
 
-> **Smart India Hackathon 2026 Submission**  
-> AI-powered arrival prediction engine accounting for signal aspects, track headway, dynamic block occupancy, and priority overtakes.
+RailPulse is a self-contained FastAPI demo for a New Delhi–Ghaziabad style rail corridor. It combines synthetic corridor telemetry, a startup-trained ETA regressor, honest uncertainty ranges, a 1D kinematic dead-reckoner, and shared controller/passenger views.
 
----
+## Run locally
 
-## 📌 Problem Overview
-Current arrival forecasts on Indian Railways (NTES/IRCTC) rely on static timetables and historical buffer times. They fail to capture real-time physical realities:
-- Trailing slower freight rakes in automatic block signaling zones.
-- Dwell times at outer signals and loop lines.
-- Temporary Speed Restrictions (TSRs) and junction congestion.
-
-**RailPulse** ingests live telemetry and uses a machine learning regression model to dynamically recalculate arrival windows, dwell times, and confidence margins in real time.
-
----
-
-## 🛠️ Tech Stack
-- **Backend & APIs:** Python 3, FastAPI, Uvicorn, Pydantic
-- **Machine Learning:** LightGBM, Scikit-learn, Pandas, NumPy
-- **Frontend & GIS:** HTML5, Tailwind CSS, Leaflet.js (OpenStreetMap/CartoDB tiles)
-- **Data Simulation:** Custom synthetic RTIS & Multi-Train Telemetry Streamer
-
----
-
-## 🚀 Key Features
-1. **Dynamic Recalibration vs. Static Schedule:** Proves failure of naive timetable math during track bottlenecks.
-2. **Multi-Train Corridor Simulation:** Models express train trailing behind a slower freight rake on the NDLS–CNB corridor.
-3. **Dispatch & Loop Overtake Control:** Interactive toggle to divert freight to loop lines and restore green signal aspects.
-4. **Confidence Intervals:** Computes error margins based on signal status and block rake density.
-
----
-
-## 💻 Local Setup & Installation
-
-### 1. Clone the repository
 ```bash
-git clone [https://github.com/](https://github.com/)<YOUR_GITHUB_USERNAME>/railpulse-eta.git
-cd railpulse-eta
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Open `http://127.0.0.1:8000/` for the passenger HUD and `/controller` for the COA dashboard.
+
+## API
+
+- `POST /api/predict-eta` accepts distance, schedule, speed, headway, signal, TSR, block density, GPS quality, and dwell inputs.
+- `GET /api/state` returns the current telemetry, prediction, and recent audit entries.
+- `GET /api/audit` returns structured in-memory SQLite audit records.
+- `POST /api/override` accepts `freight`, `overtake`, `signal_hold`, and `gps` controller actions.
+- `WS /ws` broadcasts telemetry and accepts the same override JSON messages.
+
+The model prefers XGBoost when available and falls back to scikit-learn GradientBoostingRegressor. `railpulse_model.pkl` is generated on first startup and is ignored by Git.

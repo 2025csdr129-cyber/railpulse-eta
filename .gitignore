@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 *.log
+railpulse_model.pkl
+__pycache__/
+.pytest_cache/
+.venv/
